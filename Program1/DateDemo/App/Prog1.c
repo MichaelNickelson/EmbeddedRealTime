@@ -16,40 +16,11 @@ Read in and parse sensor data over a simulated RF link.
 /* Include Micrium and STM headers. */
 #include "includes.h"
 
-/* Include Date module header. */
+/* Include module headers. */
 #include "PktParser.h"
+#include "Errors.h"
 
-/*----- c o n s t a n t    d e f i n i t i o n s -----*/
-
-#define BaudRate 9600           /* RS232 Port Baud Rate */
-  
-/*----- f u n c t i o n    p r o t o t y p e s -----*/
-
-CPU_INT32S AppMain();
-CPU_INT16U Reverse2Bytes(CPU_INT16U b);
-CPU_INT32U Reverse4Bytes(CPU_INT32U b);
-
-/*--------------- m a i n ( ) -----------------*/
-
-CPU_INT32S main()
-{
-    CPU_INT32S	exitCode;       // Return this code on exit.
-	
-//  Initialize the STM32F107 eval. board.
-    BSP_IntDisAll();            /* Disable all interrupts. */
-
-    BSP_Init();                 /* Initialize BSP functions */
-
-    BSP_Ser_Init(BaudRate);     /* Initialize the RS232 interface. */
-
-//  Run the application.
-    exitCode = AppMain();
-    
-    return exitCode;
-}
-
-/*--------------- A p p M a i n ( ) -----------------*/
-
+/*----- Definition of Payload structure -----*/
 #pragma pack(1)
 typedef struct
 {
@@ -78,17 +49,52 @@ typedef struct
   } dataPart;
 } Payload;
 
+/*----- c o n s t a n t    d e f i n i t i o n s -----*/
+
+#define BaudRate 9600           /* RS232 Port Baud Rate */
+  
+/*----- f u n c t i o n    p r o t o t y p e s -----*/
+
+CPU_INT32S AppMain();
+CPU_INT16U Reverse2Bytes(CPU_INT16U b);
+CPU_INT32U Reverse4Bytes(CPU_INT32U b);
+
+/*----- parsing function prototypes -----*/
+
+void ParseTemp(Payload *payload);
+void ParsePressure(Payload *payload);
+void ParseHumidity(Payload *payload);
+void ParseWind(Payload *payload);
+void ParseRadiation(Payload *payload);
+void ParseTimeStamp(Payload *payload);
+void ParsePrecip(Payload *payload);
+void ParseID(Payload *payload);
+
+/*--------------- m a i n ( ) -----------------*/
+
+CPU_INT32S main()
+{
+    CPU_INT32S	exitCode;       // Return this code on exit.
+	
+//  Initialize the STM32F107 eval. board.
+    BSP_IntDisAll();            /* Disable all interrupts. */
+
+    BSP_Init();                 /* Initialize BSP functions */
+
+    BSP_Ser_Init(BaudRate);     /* Initialize the RS232 interface. */
+
+//  Run the application.
+    exitCode = AppMain();
+    
+    return exitCode;
+}
+
+/*--------------- A p p M a i n ( ) -----------------*/
+
 CPU_INT32S AppMain()
 {
-//    Date	date1;		/* -- First date */
-//    Date	date2;		/* -- Second date */
-//    CPU_INT16U	dayNum1;	/* -- Day of year for first date */
-//    CPU_INT16U	dayNum2;	/* -- Day of year for second date */
   
 Payload payload;
-CPU_INT32U packDate;
-
-//while(TRUE){
 
 while(&payload){
   ParsePkt(&payload);
@@ -96,73 +102,108 @@ while(&payload){
   if(payload.dstAddr == MYADDRESS){
     switch (payload.msgType){
       case(1):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("TEMPERATURE MESSAGE\n");
-        BSP_Ser_Printf("  Temperature = %d\n\n", payload.dataPart.temp);
+        ParseTemp(&payload);
         break;
       case(2):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("BAROMETRIC PRESSURE MESSAGE\n");
-        BSP_Ser_Printf("  Pressure = %u\n\n", Reverse2Bytes(payload.dataPart.pres));
+        ParsePressure(&payload);
         break;
       case(3):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("HUMIDITY MESSAGE\n");
-        BSP_Ser_Printf("  Dew Point = %d ", payload.dataPart.hum.dewPt);
-        BSP_Ser_Printf("Humidity = %u\n\n", payload.dataPart.hum.hum);
+        ParseHumidity(&payload);
         break;
       case(4):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("WIND MESSAGE\n");
-        BSP_Ser_Printf("  Speed %u",(payload.dataPart.wind.speed[0] >> 4));
-        BSP_Ser_Printf("%u",(payload.dataPart.wind.speed[0] & 0x0F));
-        BSP_Ser_Printf("%u",(payload.dataPart.wind.speed[1] >> 4));
-        BSP_Ser_Printf(".");
-        BSP_Ser_Printf("%u ",(payload.dataPart.wind.speed[1] & 0x0F));
-        BSP_Ser_Printf("Wind Direction = %d\n\n",Reverse2Bytes(payload.dataPart.wind.dir));
+        ParseWind(&payload);
         break;
       case(5):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("SOLAR RADIATION MESSAGE\n");
-        BSP_Ser_Printf("  Solar Radiation Intensity = %u\n\n", 
-                       Reverse2Bytes(payload.dataPart.rad));
+        ParseRadiation(&payload);
         break;
       case(6):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("DATE/TIME STAMP MESSAGE\n");
-        packDate = Reverse4Bytes(payload.dataPart.dateTime);
-        BSP_Ser_Printf("  Time Stamp = %d/%d/%d %d:%d\n\n",
-                       packDate>>5 & 0xF,
-                       packDate & 0x1F,
-                       packDate>>9 & 0xFFF,
-                       packDate>>27,
-                       packDate>>21 & 0x3F);
+        ParseTimeStamp(&payload);
         break;
       case(7):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("PRECIPITATION MESSAGE\n");
-        BSP_Ser_Printf("  Precipitation Depth = %d",(payload.dataPart.wind.speed[0] >> 4));
-        BSP_Ser_Printf("%d",(payload.dataPart.wind.speed[0] & 0x0F));
-        BSP_Ser_Printf(".");
-        BSP_Ser_Printf("%d",(payload.dataPart.wind.speed[1] >> 4));
-        BSP_Ser_Printf("%d\n\n",(payload.dataPart.wind.speed[1] & 0x0F));
+        ParsePrecip(&payload);
         break;
       case(8):
-        BSP_Ser_Printf("SOURCE NODE %d: ",payload.srcAddr);
-        BSP_Ser_Printf("SENSOR ID MESSAGE\n");
-        BSP_Ser_Printf("  Node ID = ");
-        for(int i=0;i<payload.payloadLen-4;i++)
-          BSP_Ser_Printf("%c",payload.dataPart.id[i]);
-        BSP_Ser_Printf("\n\n");
+        ParseID(&payload);
         break;
       default:
-        BSP_Ser_Printf("*** ERROR: Unknown Message Type\n\n");
+        DispErr(ERR_MESSAGE_TYPE);
     }
   }else{
-    BSP_Ser_Printf("*** INFO: Not My Address\n\n");
+    DispErr(ERR_ADDRESS);
   }
 }
     return 0;
+}
+
+void ParseTemp(Payload *payload){
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("TEMPERATURE MESSAGE\n");
+  BSP_Ser_Printf("  Temperature = %d\n\n", payload->dataPart.temp);
+}
+
+void ParsePressure(Payload *payload){
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("BAROMETRIC PRESSURE MESSAGE\n");
+  BSP_Ser_Printf("  Pressure = %u\n\n", Reverse2Bytes(payload->dataPart.pres));
+}
+
+void ParseHumidity(Payload *payload){
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("HUMIDITY MESSAGE\n");
+  BSP_Ser_Printf("  Dew Point = %d ", payload->dataPart.hum.dewPt);
+  BSP_Ser_Printf("Humidity = %u\n\n", payload->dataPart.hum.hum);
+}
+
+void ParseWind(Payload *payload){
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("WIND MESSAGE\n");
+  BSP_Ser_Printf("  Speed %u",(payload->dataPart.wind.speed[0] >> 4));
+  BSP_Ser_Printf("%u",(payload->dataPart.wind.speed[0] & 0x0F));
+  BSP_Ser_Printf("%u",(payload->dataPart.wind.speed[1] >> 4));
+  BSP_Ser_Printf(".");
+  BSP_Ser_Printf("%u ",(payload->dataPart.wind.speed[1] & 0x0F));
+  BSP_Ser_Printf("Wind Direction = %d\n\n",Reverse2Bytes(payload->dataPart.wind.dir));
+}
+
+void ParseRadiation(Payload *payload){
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("SOLAR RADIATION MESSAGE\n");
+  BSP_Ser_Printf("  Solar Radiation Intensity = %u\n\n", 
+                 Reverse2Bytes(payload->dataPart.rad));
+}
+
+void ParseTimeStamp(Payload *payload){
+  CPU_INT32U packDate;
+  
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("DATE/TIME STAMP MESSAGE\n");
+  packDate = Reverse4Bytes(payload->dataPart.dateTime);
+  BSP_Ser_Printf("  Time Stamp = %d/%d/%d %d:%d\n\n",
+                 packDate>>5 & 0xF,
+                 packDate & 0x1F,
+                 packDate>>9 & 0xFFF,
+                 packDate>>27,
+                 packDate>>21 & 0x3F);
+}
+
+void ParsePrecip(Payload *payload){
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("PRECIPITATION MESSAGE\n");
+  BSP_Ser_Printf("  Precipitation Depth = %d",
+                 (payload->dataPart.wind.speed[0] >> 4));
+  BSP_Ser_Printf("%d",(payload->dataPart.wind.speed[0] & 0x0F));
+  BSP_Ser_Printf(".");
+  BSP_Ser_Printf("%d",(payload->dataPart.wind.speed[1] >> 4));
+  BSP_Ser_Printf("%d\n\n",(payload->dataPart.wind.speed[1] & 0x0F));
+}
+
+void ParseID(Payload *payload){
+  BSP_Ser_Printf("SOURCE NODE %d: ",payload->srcAddr);
+  BSP_Ser_Printf("SENSOR ID MESSAGE\n");
+  BSP_Ser_Printf("  Node ID = ");
+  for(int i=0;i<payload->payloadLen-4;i++)
+    BSP_Ser_Printf("%c",payload->dataPart.id[i]);
+  BSP_Ser_Printf("\n\n");
 }
 
 CPU_INT16U Reverse2Bytes(CPU_INT16U b){

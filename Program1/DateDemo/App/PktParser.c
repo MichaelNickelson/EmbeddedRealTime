@@ -3,8 +3,10 @@
 #include "includes.h"
 
 #include "PktParser.h"
+#include "Errors.h"
 
 #define HeaderLength 4
+#define ShortestPacket 8
 
 /* Parser state data type */
 typedef enum { P1, P2, P3, L, R, ER } ParserState;
@@ -26,7 +28,7 @@ void ParsePkt(void *pktBfr)
   CPU_INT16S    c;
   CPU_INT08U    i;
   
-  PktBfr *payloadBfr = pktBfr;  
+  PktBfr *payloadBfr = pktBfr;
   for(;;){
     c = GetByte();
     
@@ -39,8 +41,7 @@ void ParsePkt(void *pktBfr)
         if (c == preamble[0]){
           parseState = P2;
         }else{
-          BSP_Ser_Printf("\a*** ERROR: Bad Preamble Byte 1\n\n");
-          checkSum = 0;
+          DispErr(ERR_PRE1);
           parseState = ER;
         }
         break;
@@ -48,8 +49,7 @@ void ParsePkt(void *pktBfr)
         if (c == preamble[1]){
           parseState = P3;
         }else{
-          BSP_Ser_Printf("\a*** ERROR: Bad Preamble Byte 2\n\n");
-          checkSum = 0;
+          DispErr(ERR_PRE2);
           parseState = ER;
         }
         break;
@@ -57,16 +57,14 @@ void ParsePkt(void *pktBfr)
         if (c == preamble[2]){
           parseState = L;
         }else{
-          BSP_Ser_Printf("\a*** ERROR: Bad Preamble Byte 3\n");
-          checkSum = 0;
+          DispErr(ERR_PRE3);
           parseState = ER;
         }
         break;
       case L:
         payloadBfr->payloadLen = c - HeaderLength;
-        if(c<8){
-          BSP_Ser_Printf("\a*** ERROR: Bad Packet Size\n\n");
-          checkSum = 0;
+        if(c<ShortestPacket){
+          DispErr(ERR_LEN);
           parseState = ER;
         }else{
         i = 0;
@@ -77,8 +75,7 @@ void ParsePkt(void *pktBfr)
         payloadBfr->data[i++] = c;
         if (i>= payloadBfr->payloadLen){
           if(checkSum){
-            BSP_Ser_Printf("\a*** ERROR: Bad Checksum\n\n");
-            checkSum = 0;
+            DispErr(ERR_CHECKSUM);
             parseState = ER;
             break;
           }
@@ -89,6 +86,7 @@ void ParsePkt(void *pktBfr)
       case ER:
         if (c == preamble[0]){
           parseState = P2;
+          checkSum = c;
         }else{
           checkSum=0;
           parseState = ER;
