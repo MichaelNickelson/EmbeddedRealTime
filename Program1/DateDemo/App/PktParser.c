@@ -12,7 +12,7 @@
 #define ShortestPacket 8
 
 /* Parser state data type */
-typedef enum { P0 = 0, P1 = 1, P2 = 2, L = 3, R, ER } ParserState;
+typedef enum { P0 = 0, P1 = 1, P2 = 2, L = 3, R = 4, ER = 5 } ParserState;
 
 /* Packet structure */
 typedef struct
