@@ -12,7 +12,7 @@
 #define ShortestPacket 8
 
 /* Parser state data type */
-typedef enum { P1, P2, P3, L, R, ER } ParserState;
+typedef enum { P0, P1, P2, L, R, ER } ParserState;
 
 /* Packet structure */
 typedef struct
@@ -27,7 +27,7 @@ void ParsePkt(void *pktBfr)
   /* Initialize variables needed for packet parsing */
   CPU_INT08U preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF}; 
   CPU_INT08U checkSum = 0;
-  ParserState   parseState = P1;
+  ParserState   parseState = P0;
   CPU_INT16S    c;
   CPU_INT08U    i;
   PktBfr *payloadBfr = pktBfr;
@@ -37,24 +37,24 @@ void ParsePkt(void *pktBfr)
     checkSum ^= c; // Maintain running checksum as packets are received
     
     switch (parseState){
-      case P1:
+      case P0:
         // Start looking for a packet, if anything is wrong, raise an error
         if (c == preamble[0]){
-          parseState = P2;
+          parseState = P1;
         }else{
           DispErr(ERR_PRE1);
           parseState = ER;
         }
         break;
-      case P2:
+      case P1:
         if (c == preamble[1]){
-          parseState = P3;
+          parseState = P2;
         }else{
           DispErr(ERR_PRE2);
           parseState = ER;
         }
         break;
-      case P3:
+      case P2:
         if (c == preamble[2]){
           // Found a full preamble, read in the packet length
           parseState = L;
@@ -83,13 +83,13 @@ void ParsePkt(void *pktBfr)
             parseState = ER;
             break;
           }
-          parseState = P1;
+          parseState = P0;
           return;
         }
         break;
       case ER:
         if (c == preamble[0]){
-          parseState = P2;
+          parseState = P1;
           checkSum = c;
         }else{
           checkSum=0;
