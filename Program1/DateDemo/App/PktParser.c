@@ -12,7 +12,7 @@
 #define ShortestPacket 8
 
 /* Parser state data type */
-typedef enum { P0, P1, P2, L, R, ER } ParserState;
+typedef enum { P0 = 0, P1 = 1, P2 = 2, L = 3, R, ER } ParserState;
 
 /* Packet structure */
 typedef struct
@@ -37,29 +37,13 @@ void ParsePkt(void *pktBfr)
     checkSum ^= c; // Maintain running checksum as packets are received
     
     switch (parseState){
-      case P0:
-        // Start looking for a packet, if anything is wrong, raise an error
-        if (c == preamble[0]){
-          parseState = P1;
+      case P0:  // Start looking for a preamble, 
+      case P1:  // if anything is wrong,
+      case P2:  // raise an error.
+        if (c == preamble[parseState]){
+          parseState++;
         }else{
-          DispErr(ERR_PRE1);
-          parseState = ER;
-        }
-        break;
-      case P1:
-        if (c == preamble[1]){
-          parseState = P2;
-        }else{
-          DispErr(ERR_PRE2);
-          parseState = ER;
-        }
-        break;
-      case P2:
-        if (c == preamble[2]){
-          // Found a full preamble, read in the packet length
-          parseState = L;
-        }else{
-          DispErr(ERR_PRE3);
+          PreambleError(parseState+1);
           parseState = ER;
         }
         break;
@@ -74,8 +58,7 @@ void ParsePkt(void *pktBfr)
         parseState = R;
         }
         break;
-      case R:
-        // Read in data
+      case R:   // Read in data
         payloadBfr->data[i++] = c;
         if (i>= payloadBfr->payloadLen){
           if(checkSum){
