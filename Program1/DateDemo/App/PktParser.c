@@ -25,11 +25,9 @@ typedef struct
 void ParsePkt(void *pktBfr)
 {
   /* Initialize variables needed for packet parsing */
-  CPU_INT08U preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF}; 
-  CPU_INT08U checkSum = 0;
   ParserState   parseState = P0;
   CPU_INT16S    c;
-  CPU_INT08U    i;
+  CPU_INT08U    i, checkSum = 0, preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
   PktBfr *payloadBfr = pktBfr;
   
   for(;;){
