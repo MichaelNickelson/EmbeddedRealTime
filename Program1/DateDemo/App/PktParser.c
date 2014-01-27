@@ -68,12 +68,12 @@ void ParsePkt(void *pktBfr)
           return;
         }
         break;
-      case ER:
+      case ER:  // If an error occurs, or a an unknown state arises,
+      default:  // continue looking for preamble bytes.
         if (c == preamble[0]){
           parseState = P1;
           checkSum = c;
         }else{
-          checkSum=0;
           parseState = ER;
         }
         break;
