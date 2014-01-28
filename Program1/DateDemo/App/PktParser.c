@@ -27,7 +27,7 @@ void ParsePkt(void *pktBfr)
   /* Initialize variables needed for packet parsing */
   ParserState   parseState = P;
   CPU_INT16S    c;
-  CPU_INT08U    i, p = 0, checkSum = 0, preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
+  CPU_INT08U    i, pb = 0, checkSum = 0, preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
   PktBfr *payloadBfr = pktBfr;
   
   for(;;){
@@ -36,13 +36,13 @@ void ParsePkt(void *pktBfr)
     
     switch (parseState){
       case P:  // Start looking for a preamble
-        if (c == preamble[p]){
-          p++;
+        if (c == preamble[pb]){
+          pb++;
         }else{ // If the wrong byte is found, go to error state
-          PreambleError(p+1);
+          PreambleError(pb+1);
           parseState = ER;
         }
-        if (p >= HeaderLength-1) // Once the full header is found, move on
+        if (pb >= HeaderLength-1) // Once the full header is found, move on
           parseState = L;
         break;
       case L:
@@ -65,7 +65,7 @@ void ParsePkt(void *pktBfr)
             break;
           }
           parseState = P;
-          p=0;
+          pb=0;
           return;
         }
         break;
@@ -73,7 +73,7 @@ void ParsePkt(void *pktBfr)
       default:  // continue looking for a preamble.
         if (c == preamble[0]){
           parseState = P;
-          p=1;
+          pb=1;
           checkSum = c;
         }else{
           parseState = ER;
