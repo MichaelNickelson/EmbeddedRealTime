@@ -7,7 +7,7 @@ void DispErr(Error_t e){
   
   switch(e){
     case(ERR_CHECKSUM):
-      BSP_Ser_Printf("Bad Checksum\n");
+      BSP_Ser_Printf("Checksum error\n");
       break;
     case(ERR_LEN):
       BSP_Ser_Printf("Bad Packet Size\n");

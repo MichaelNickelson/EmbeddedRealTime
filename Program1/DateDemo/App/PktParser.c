@@ -34,16 +34,22 @@ void ParsePkt(void *pktBfr)
     c = GetByte();
     checkSum ^= c; // Maintain running checksum as packets are received
     
+//    BSP_Ser_Printf(" %x",c);
+    
     switch (parseState){
       case P:  // Start looking for a preamble
         if (c == preamble[pb]){
           pb++;
         }else{ // If the wrong byte is found, go to error state
           PreambleError(pb+1);
+          pb = 0;
+          checkSum=0;
           parseState = ER;
         }
-        if (pb >= HeaderLength-1) // Once the full header is found, move on
+        if (pb >= HeaderLength-1){ // Once the full header is found, move on
           parseState = L;
+          pb = 0;
+        }
         break;
       case L:
         // Read in packet length, subtract header length to get payload length
@@ -59,9 +65,12 @@ void ParsePkt(void *pktBfr)
       case R:   // Read in data
         payloadBfr->data[i++] = c;
         if (i>= payloadBfr->payloadLen){
+//        if (i> payloadBfr->payloadLen){
           if(checkSum){
             DispErr(ERR_CHECKSUM);
-            parseState = ER;
+            checkSum = 0;
+//            parseState = ER;
+            parseState = P;
             break;
           }
           parseState = P;
@@ -71,13 +80,22 @@ void ParsePkt(void *pktBfr)
         break;
       case ER:  // If an error occurs, or a an unknown state arises,
       default:  // continue looking for a preamble.
-        if (c == preamble[0]){
-          parseState = P;
-          pb=1;
-          checkSum = c;
-        }else{
-          parseState = ER;
+//        if (c == preamble[0]){
+//          parseState = P;
+//          pb=1;
+//          checkSum = c;
+//        }else{
+//          parseState = ER;
+//        }
+//        break;
+        if (c == preamble[pb]){
+          pb++;
+        }else{ // If the wrong byte is found, go to error state
+          pb = 0;
+          checkSum = 0;
         }
+        if (pb >= HeaderLength-1) // Once the full header is found, move on
+          parseState = L;
         break;
     }
   }
