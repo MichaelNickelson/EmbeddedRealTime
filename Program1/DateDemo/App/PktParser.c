@@ -12,7 +12,7 @@
 #define ShortestPacket 8
 
 /* Parser state data type */
-typedef enum { P0 = 0, P1 = 1, P2 = 2, L = 3, R = 4, ER = 5 } ParserState;
+typedef enum { P, L, R, ER } ParserState;
 
 /* Packet structure */
 typedef struct
@@ -25,9 +25,9 @@ typedef struct
 void ParsePkt(void *pktBfr)
 {
   /* Initialize variables needed for packet parsing */
-  ParserState   parseState = P0;
+  ParserState   parseState = P;
   CPU_INT16S    c;
-  CPU_INT08U    i, checkSum = 0, preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
+  CPU_INT08U    i, p = 0, checkSum = 0, preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
   PktBfr *payloadBfr = pktBfr;
   
   for(;;){
@@ -35,15 +35,15 @@ void ParsePkt(void *pktBfr)
     checkSum ^= c; // Maintain running checksum as packets are received
     
     switch (parseState){
-      case P0:  // Start looking for a preamble, 
-      case P1:  // if anything is wrong,
-      case P2:  // raise an error.
-        if (c == preamble[parseState]){
-          parseState++;
-        }else{
-          PreambleError(parseState+1);
+      case P:  // Start looking for a preamble
+        if (c == preamble[p]){
+          p++;
+        }else{ // If the wrong byte is found, go to error state
+          PreambleError(p+1);
           parseState = ER;
         }
+        if (p >= HeaderLength-1) // Once the full header is found, move on
+          parseState = L;
         break;
       case L:
         // Read in packet length, subtract header length to get payload length
@@ -64,14 +64,16 @@ void ParsePkt(void *pktBfr)
             parseState = ER;
             break;
           }
-          parseState = P0;
+          parseState = P;
+          p=0;
           return;
         }
         break;
       case ER:  // If an error occurs, or a an unknown state arises,
-      default:  // continue looking for preamble bytes.
+      default:  // continue looking for a preamble.
         if (c == preamble[0]){
-          parseState = P1;
+          parseState = P;
+          p=1;
           checkSum = c;
         }else{
           parseState = ER;

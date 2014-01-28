@@ -217,6 +217,7 @@ void ParseID(Payload *payload){
   BSP_Ser_Printf("\n");
 }
 
+// Byte reversal functions for 1 and 2 word ints
 CPU_INT16U Reverse2Bytes(CPU_INT16U b){
   b = (b<<8)|
       (b>>8);
