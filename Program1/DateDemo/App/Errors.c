@@ -37,8 +37,7 @@ void DispAssert(Assert_t a){
 }
 
 /* Separating preamble errors results in an extra function, but allows for 
-an arbitrary number of preamble bytes.
-*/
+an arbitrary number of preamble bytes. */
 void PreambleError(CPU_INT08U bn){
   BSP_Ser_Printf("\a*** ERROR: ");
   BSP_Ser_Printf("Bad Preamble Byte %d\n",bn);
