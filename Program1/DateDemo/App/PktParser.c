@@ -24,8 +24,7 @@ typedef struct
 /* Function for packet handling */
 void ParsePkt(void *pktBfr)
 {
-  /* Initialize variables needed for packet parsing */
-  ParserState   parseState = P;
+  ParserState   parseState = P; // Initialize variables
   CPU_INT16S    c;
   CPU_INT08U    i, pb = 0, checkSum = 0, preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
   PktBfr *payloadBfr = pktBfr;
@@ -35,7 +34,7 @@ void ParsePkt(void *pktBfr)
     checkSum ^= c; // Maintain running checksum as bytes are received
     
     switch (parseState){
-      case P:  // Start looking for a preamble
+      case P:  // Look for a preamble
         if (c == preamble[pb]){
           pb++;
         }else{ // If the wrong byte is found, go to error state
@@ -49,9 +48,8 @@ void ParsePkt(void *pktBfr)
           parseState = L;
         }
         break;
-      case L:
-        // Read in packet length, subtract header length to get payload length
-        payloadBfr->payloadLen = c - HeaderLength;
+      case L: // Read in packet length
+        payloadBfr->payloadLen = c - HeaderLength; // Calculate pakcet length
         if(c<ShortestPacket){ // Raise an error if the packet is too short
           DispErr(ERR_LEN);
           parseState = ER;
@@ -77,7 +75,7 @@ void ParsePkt(void *pktBfr)
       default:  // look for a  full preamble.
         if (c == preamble[pb]){
           pb++;
-        }else{ // If the wrong byte is found, go to error state
+        }else{ // If the wrong byte is found, stay in error state
           pb = 0;
           checkSum = 0;
         }
