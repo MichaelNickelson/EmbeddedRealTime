@@ -8,22 +8,27 @@ Read in and parse sensor data over a simulated RF link.
 
 */
 
-/*----- Parameters for this program -----*/
-
-#define MYADDRESS 1             /* Receiver address */                
-
-#define WINDSPEED_LENGTH 2      /* 2-byte BCD */
-#define PRECIP_LENGTH 2         /* 2-byte BCD */
-#define ID_LENGTH 10            /* Up to 10 ASCII characters */
-
-#define BaudRate 9600           /* RS232 Port Baud Rate */
-
 /* Include Micrium and STM headers. */
 #include "includes.h"
 
 /* Include module headers. */
 #include "PktParser.h"
 #include "Errors.h"
+
+/*----- Parameters for this program -----*/
+
+#define LowNibble 0xF
+#define Nibble 4
+
+#define LowByte 0               /* For multibyte BCD message */
+#define HighByte 1              /* For multibyte BCD message */
+
+#define WindSpeedLength 2      /* 2-byte BCD */
+#define PrecipLength 2         /* 2-byte BCD */
+#define IDLength 10            /* Up to 10 ASCII characters */
+
+#define BaudRate 9600           /* RS232 Port Baud Rate */
+
 
 /*----- Definition of Payload structure -----*/
 #pragma pack(1)
@@ -44,13 +49,13 @@ typedef struct
     } hum;
     struct
     {
-      CPU_INT08U speed[WINDSPEED_LENGTH];
+      CPU_INT08U speed[WindSpeedLength];
       CPU_INT16U dir;
     } wind;
     CPU_INT16U  rad;
     CPU_INT32U  dateTime;
-    CPU_INT08U  depth[PRECIP_LENGTH];
-    CPU_INT08U  id[ID_LENGTH];
+    CPU_INT08U  depth[PrecipLength];
+    CPU_INT08U  id[IDLength];
   } dataPart;
 } Payload;
   
@@ -95,6 +100,8 @@ CPU_INT32S main()
 
 CPU_INT32S AppMain()
 {
+  const CPU_INT08U MyAddress = 1; // Receiver address
+  
   // Assign easy to read names to message ID
   enum {MSG_TEMP=1,
         MSG_PRESSURE=2,
@@ -110,7 +117,7 @@ CPU_INT32S AppMain()
   while(&payload){
     ParsePkt(&payload);
     
-    if(payload.dstAddr == MYADDRESS){   // Only parse messages to this receiver
+    if(payload.dstAddr == MyAddress){   // Only parse messages to this receiver
       switch (payload.msgType){         // Call message parser for appropriate
         case(MSG_TEMP):                 // message type
           ParseTemp(&payload);
@@ -170,11 +177,13 @@ void ParseHumidity(Payload *payload){
 void ParseWind(Payload *payload){
   BSP_Ser_Printf("\nSOURCE NODE %d: ",payload->srcAddr);
   BSP_Ser_Printf("WIND MESSAGE\n");
-  BSP_Ser_Printf("  Speed = %d%d%d.%d ",(payload->dataPart.wind.speed[0] >> 4),
-                                        (payload->dataPart.wind.speed[0] & 0x0F),
-                                        (payload->dataPart.wind.speed[1] >> 4),
-                                        (payload->dataPart.wind.speed[1] & 0x0F));
-  BSP_Ser_Printf("Wind Direction = %d\n",Reverse2Bytes(payload->dataPart.wind.dir));
+  BSP_Ser_Printf("  Speed = %d%d%d.%d ",
+                (payload->dataPart.wind.speed[LowByte] >> Nibble),
+                (payload->dataPart.wind.speed[LowByte] & LowNibble),
+                (payload->dataPart.wind.speed[HighByte] >> Nibble),
+                (payload->dataPart.wind.speed[HighByte] & LowNibble));
+  BSP_Ser_Printf("Wind Direction = %d\n",
+                 Reverse2Bytes(payload->dataPart.wind.dir));
 }
 
 void ParseRadiation(Payload *payload){
@@ -185,49 +194,60 @@ void ParseRadiation(Payload *payload){
 }
 
 void ParseTimeStamp(Payload *payload){
+  /* Starting bit and bitmask for each component of packed date/time message */
+  const CPU_INT08U DayPosition    = 0;
+  const CPU_INT08U MonthPosition  = 5;
+  const CPU_INT08U YearPosition   = 9;
+  const CPU_INT08U MinutePosition = 21;
+  const CPU_INT08U HourPosition   = 27;
+  
+  const CPU_INT08U DayMask        = 0x1F;
+  const CPU_INT08U MonthMask      = 0xF;
+  const CPU_INT16U YearMask       = 0xFFF;
+  const CPU_INT08U MinuteMask     = 0x3F;
+  const CPU_INT08U HourMask       = 0x1F;
+  
   CPU_INT32U packDate;
   
   BSP_Ser_Printf("\nSOURCE NODE %d: ",payload->srcAddr);
   BSP_Ser_Printf("DATE/TIME STAMP MESSAGE\n");
   packDate = Reverse4Bytes(payload->dataPart.dateTime);
   BSP_Ser_Printf("  Time Stamp = %d/%d/%d %d:%d\n",
-                 packDate>>5 & 0xF,
-                 packDate & 0x1F,
-                 packDate>>9 & 0xFFF,
-                 packDate>>27,
-                 packDate>>21 & 0x3F);
+                 packDate>>MonthPosition  & MonthMask,
+                 packDate>>DayPosition    & DayMask,
+                 packDate>>YearPosition   & YearMask,
+                 packDate>>HourPosition   & HourMask,
+                 packDate>>MinutePosition & MinuteMask);
 }
 
 void ParsePrecip(Payload *payload){
   BSP_Ser_Printf("\nSOURCE NODE %d: ",payload->srcAddr);
   BSP_Ser_Printf("PRECIPITATION MESSAGE\n");
   BSP_Ser_Printf("  Precipitation Depth = %d%d.%d%d\n",
-                 (payload->dataPart.wind.speed[0] >> 4),
-                 (payload->dataPart.wind.speed[0] & 0x0F),
-                 (payload->dataPart.wind.speed[1] >> 4),
-                 (payload->dataPart.wind.speed[1] & 0x0F));
+                 (payload->dataPart.wind.speed[LowByte] >> Nibble),
+                 (payload->dataPart.wind.speed[LowByte] & LowNibble),
+                 (payload->dataPart.wind.speed[HighByte] >> Nibble),
+                 (payload->dataPart.wind.speed[HighByte] & LowNibble));
 }
 
 void ParseID(Payload *payload){
   BSP_Ser_Printf("\nSOURCE NODE %d: ",payload->srcAddr);
   BSP_Ser_Printf("SENSOR ID MESSAGE\n");
   BSP_Ser_Printf("  Node ID = ");
-  for(int i=0;i<payload->payloadLen-4;i++)
+  // Print out one character at a time until the end of the packet is reached
+  // then print a newline character.
+  for(int i=0;i<payload->payloadLen-HeaderLength;i++)
     BSP_Ser_Printf("%c",payload->dataPart.id[i]);
   BSP_Ser_Printf("\n");
 }
 
 // Byte reversal functions for 1 and 2 word ints
 CPU_INT16U Reverse2Bytes(CPU_INT16U b){
-  b = (b<<8)|
-      (b>>8);
+  b = (b<<8) | (b>>8);
   return b;
 }
 
 CPU_INT32U Reverse4Bytes(CPU_INT32U b){
-  b = (b<<24)|
-      ((b<<8)&0x00FF0000)|
-      ((b>>8)&0x0000FF00)|
-      (b>>24);
+  b = (b<<24) | ((b<<8)&0xFF0000) | ((b>>8)&0xFF00) | (b>>24);
   return b;
 }
