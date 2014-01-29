@@ -8,7 +8,6 @@
 #include "Errors.h"
 
 /* Define parameters of packet */
-#define HeaderLength 4
 #define ShortestPacket 8
 
 /* Parser state data type */
@@ -49,13 +48,13 @@ void ParsePkt(void *pktBfr)
         }
         break;
       case L: // Read in packet length
-        payloadBfr->payloadLen = c - HeaderLength; // Calculate pakcet length
         if(c<ShortestPacket){ // Raise an error if the packet is too short
           DispErr(ERR_LEN);
           parseState = ER;
         }else{
-        i = 0; // Start reading in data, starting with byte 0
-        parseState = R;
+          payloadBfr->payloadLen = c - HeaderLength; // Calculate packet length
+          i = 0; // Start reading in data, starting with byte 0
+          parseState = R;
         }
         break;
       case R:   // Read in data
@@ -79,7 +78,7 @@ void ParsePkt(void *pktBfr)
           pb = 0;
           checkSum = 0;
         }
-        parseState = (pb >= HeaderLength-1) ? L : ER;
+        parseState = (pb >= HeaderLength-1) ?L:ER; // Move on if preamble found
         break;
     }
   }
