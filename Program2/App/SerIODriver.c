@@ -9,16 +9,15 @@
 #define BfrSize 4
 #endif
 
-static BfrPair iBfrPair;
-static CPU_INT08U iBfr0Space[4];
-static CPU_INT08U iBfr1Space[4];
+BfrPair iBfrPair;
+CPU_INT08U iBfr0Space[4];
+CPU_INT08U iBfr1Space[4];
 
 static BfrPair oBfrPair;
 static CPU_INT08U oBfr0Space[4];
 static CPU_INT08U oBfr1Space[4];
 
 void InitSerIO(){
-  
   static USART_TypeDef *uart = USART2;
   
   uart->BRR = 0x0EA6;
@@ -30,14 +29,7 @@ void InitSerIO(){
   afio->MAPR = 0x0008;
 //  afio->MAPR = 0x0010;
   
-//  static BfrPair iBfrPair;
-//  static CPU_INT08U iBfr0Space[4];
-//  static CPU_INT08U iBfr1Space[4];
   BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, 4);
-  
-//  static BfrPair oBfrPair;
-//  static CPU_INT08U oBfr0Space[4];
-//  static CPU_INT08U oBfr1Space[4];
   BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, 4);
   
   return;

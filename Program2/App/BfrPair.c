@@ -4,8 +4,6 @@ void BfrPairInit(BfrPair *bfrPair,
                  CPU_INT08U *bfr0Space,
                  CPU_INT08U *bfr1Space,
                  CPU_INT16U size){
-//  Buffer* bfr = &bfrPair->buffers[0];
-//  BfrInit(bfr,bfr0Space, size);
   BfrInit(&bfrPair->buffers[0], bfr0Space, size);
   BfrInit(&bfrPair->buffers[1], bfr1Space, size);
   
