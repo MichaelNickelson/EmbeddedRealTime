@@ -26,16 +26,20 @@ typedef struct
 /* Function for packet handling */
 void ParsePkt(BfrPair *payloadBfrPair){
   static ParserState parseState = P;
+  static CPU_INT08U pb = 0, checkSum = 0, i = 0, payloadLen;
 //  BfrPair iBfrPair;
   // Initialize variables
   CPU_INT16S    c;
-  CPU_INT08U    i, pb = 0, checkSum = 0, preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
+  CPU_INT08U    preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
 
-  if(GetBfrClosed(&iBfrPair))
-    c = GetBfrNextByte(&iBfrPair);
-    checkSum ^= c; // Maintain running checksum as bytes are received
+  if(GetBfrClosed(&iBfrPair)){
+    c = GetBfrRemByte(&iBfrPair);
+    PutBfrAddByte(payloadBfrPair, c);
+//  }
+  if(!PutBfrClosed(payloadBfrPair))
+//    checkSum ^= c; // Maintain running checksum as bytes are received
     
-/*    switch (parseState){
+    switch (parseState){
       case P:  // Look for a preamble
         if (c == preamble[pb]){
           pb++;
@@ -55,14 +59,14 @@ void ParsePkt(BfrPair *payloadBfrPair){
           DispErr(ERR_LEN);
           parseState = ER;
         }else{
-          payloadBfr->payloadLen = c - HeaderLength; // Calculate packet length
-          i = 0; // Start reading in data, starting with byte 0
+//          payloadLen = c - HeaderLength; // Calculate packet length
+          payloadLen = c; // Calculate packet length
+//          i = 0; // Start reading in data, starting with byte 0
           parseState = R;
         }
         break;
       case R:   // Read in data
-        payloadBfr->data[i++] = c;
-        if (i>= payloadBfr->payloadLen){
+        if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex >= payloadLen){
           if(checkSum){
             DispErr(ERR_CHECKSUM);
             checkSum = 0;
@@ -70,7 +74,9 @@ void ParsePkt(BfrPair *payloadBfrPair){
             break;
           }
           parseState = P;
-          return;
+          ClosePutBfr(payloadBfrPair);
+          if(BfrPairSwappable(payloadBfrPair))
+            BfrPairSwap(payloadBfrPair);
         }
         break;
       case ER:  // If an error occurs, or a an unknown state arises,
@@ -84,5 +90,5 @@ void ParsePkt(BfrPair *payloadBfrPair){
         parseState = (pb >= HeaderLength-1) ?L:ER; // Move on if preamble found
         break;
     }
-  }*/
+  }
 }

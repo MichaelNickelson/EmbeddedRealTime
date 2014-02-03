@@ -39,11 +39,12 @@ CPU_BOOLEAN BfrEmpty(Buffer *bfr){
 CPU_INT16S BfrAddByte(Buffer *bfr, CPU_INT16S theByte){
   CPU_INT16S retVal = theByte;
   
-  if(BfrClosed(bfr))
+  if(BfrClosed(bfr)){
     retVal = -1;
-  
-  bfr->buffer[bfr->putIndex] = theByte;
-  bfr->putIndex++;
+  }else{
+    bfr->buffer[bfr->putIndex] = theByte;
+    bfr->putIndex++;
+  }
   
   if(bfr->putIndex >= bfr->size)
     BfrClose(bfr);
@@ -54,8 +55,9 @@ CPU_INT16S BfrAddByte(Buffer *bfr, CPU_INT16S theByte){
 CPU_INT16S BfrNextByte(Buffer *bfr){
   CPU_INT16S retVal = -1;
   
-  if(!BfrEmpty(bfr))
-    retVal = bfr->getIndex;
+  if(!BfrEmpty(bfr)){
+    retVal = bfr->buffer[bfr->getIndex];
+  }
   
   return retVal;
 }
@@ -64,7 +66,7 @@ CPU_INT16S BfrRemoveByte(Buffer *bfr){
   CPU_INT16S retVal = -1;
   
   if(!BfrEmpty(bfr)){
-    retVal = bfr->getIndex;
+    retVal = bfr->buffer[bfr->getIndex];
     bfr->getIndex++;
   }
   

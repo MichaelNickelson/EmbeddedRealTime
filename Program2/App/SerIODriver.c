@@ -52,7 +52,7 @@ void ServiceTx(){
 }
 
 CPU_INT16S GetByte(void){
-  
+  return 0;
 }
 
 CPU_INT16S PutByte(CPU_INT16S txChar){

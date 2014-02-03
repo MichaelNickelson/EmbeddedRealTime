@@ -45,8 +45,7 @@ void openGetBfr(BfrPair *bfrPair){
 }
 
 CPU_INT16S PutBfrAddByte(BfrPair *bfrPair, CPU_INT16S byte){
-  CPU_INT16S retVal = -1;
-  retVal = BfrAddByte(&bfrPair->buffers[bfrPair->putBrfNum], byte);
+  CPU_INT16S retVal = BfrAddByte(&bfrPair->buffers[bfrPair->putBrfNum], byte);
   
   return retVal;
 }

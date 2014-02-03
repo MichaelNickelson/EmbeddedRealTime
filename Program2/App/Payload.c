@@ -48,7 +48,7 @@ void PayloadInit(BfrPair **payloadBfrPair, BfrPair **replyBfrPair){
   static BfrPair rBfrPair;
   static CPU_INT08U rBfr0Space[PayloadBfrSize];
   static CPU_INT08U rBfr1Space[PayloadBfrSize];
-  BfrPairInit(&pBfrPair, rBfr0Space, rBfr1Space, PayloadBfrSize);
+  BfrPairInit(&rBfrPair, rBfr0Space, rBfr1Space, PayloadBfrSize);
   *replyBfrPair = &rBfrPair;
 
   return;
