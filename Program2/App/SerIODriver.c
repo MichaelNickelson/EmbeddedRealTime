@@ -45,17 +45,13 @@ void InitSerIO(){
 
 void ServiceRx(){
   static USART_TypeDef *uart = USART2;
-//  static BfrPair iBfrPair;
   
-//  CPU_INT08U *baddr = PutBfrAddr(&iBfrPair);
-  
-  CPU_INT16S byte;
-  CPU_BOOLEAN dataready = (uart->SR) & RXNE_MASK;
-  CPU_BOOLEAN dataready2 = ((uart->SR)>>5) & 1;
-  
-  if((uart->SR) & RXNE_MASK){
+  if(((uart->SR) & RXNE_MASK) && (!PutBfrClosed(&iBfrPair)))
     PutBfrAddByte(&iBfrPair, uart->DR);
-  }
+  
+  if(BfrPairSwappable(&iBfrPair))
+    BfrPairSwap(&iBfrPair);
+  
   return;
 }
 

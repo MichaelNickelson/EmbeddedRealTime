@@ -39,7 +39,7 @@ CPU_BOOLEAN BfrEmpty(Buffer *bfr){
 CPU_INT16S BfrAddByte(Buffer *bfr, CPU_INT16S theByte){
   CPU_INT16S retVal = theByte;
   
-  if(BfrEmpty(bfr))
+  if(BfrClosed(bfr))
     retVal = -1;
   
   bfr->buffer[bfr->putIndex] = theByte;
