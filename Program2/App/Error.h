@@ -2,8 +2,8 @@
 #define Errors_H
 /*---------------------------- FILE: Errors.h ----------------------------*/
 
-typedef enum {ERR_CHECKSUM,
-              ERR_LEN,
+typedef enum {ERR_CHECKSUM = -4, 
+              ERR_LEN = -5,
               ERR_MESSAGE_TYPE,
               ERR_UNKNOWN} Error_t;
 

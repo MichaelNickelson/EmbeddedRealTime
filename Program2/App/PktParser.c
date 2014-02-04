@@ -43,7 +43,8 @@ void ParsePkt(BfrPair *payloadBfrPair){
         if (c == preamble[pb]){
           pb++;
         }else{ // If the wrong byte is found, go to error state
-          PreambleError(pb+1);
+//          PreambleError(pb+1);
+          PutBfrAddByte(payloadBfrPair, -(pb+1));
           checkSum=0;
           pb = 0;
           parseState = ER;
@@ -55,22 +56,26 @@ void ParsePkt(BfrPair *payloadBfrPair){
         break;
       case L: // Read in packet length
         if(c<ShortestPacket){ // Raise an error if the packet is too short
-          DispErr(ERR_LEN);
+//          DispErr(ERR_LEN);
+          PutBfrAddByte(payloadBfrPair, ERR_LEN);
+          ClosePutBfr(payloadBfrPair);
           parseState = ER;
         }else{
-//          payloadLen = c - HeaderLength; // Calculate packet length
           payloadLen = c - HeaderLength; // Calculate packet length
           PutBfrAddByte(payloadBfrPair, payloadLen);
-//          i = 0; // Start reading in data, starting with byte 0
           parseState = R;
         }
         break;
       case R:   // Read in data
-        PutBfrAddByte(payloadBfrPair, c);
-        if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex > payloadLen){
+        if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex < payloadLen){
+          PutBfrAddByte(payloadBfrPair, c);
+        }else{
           if(checkSum){
-            DispErr(ERR_CHECKSUM);
+//            DispErr(ERR_CHECKSUM);
             checkSum = 0;
+            PutBfrReset(payloadBfrPair);
+            PutBfrAddByte(payloadBfrPair, ERR_CHECKSUM);
+            ClosePutBfr(payloadBfrPair);
             parseState = ER;
             break;
           }
