@@ -26,7 +26,7 @@ typedef struct
 /* Function for packet handling */
 void ParsePkt(BfrPair *payloadBfrPair){
   static ParserState parseState = P;
-  static CPU_INT08U pb = 0, checkSum = 0, i = 0, payloadLen;
+  static CPU_INT08U pb = 0, checkSum = 0,/* i = 0, */payloadLen;
 //  BfrPair iBfrPair;
   // Initialize variables
   CPU_INT16S    c;
@@ -34,10 +34,9 @@ void ParsePkt(BfrPair *payloadBfrPair){
 
   if(GetBfrClosed(&iBfrPair)){
     c = GetBfrRemByte(&iBfrPair);
-    PutBfrAddByte(payloadBfrPair, c);
-//  }
-  if(!PutBfrClosed(payloadBfrPair))
-//    checkSum ^= c; // Maintain running checksum as bytes are received
+
+//  if(!PutBfrClosed(payloadBfrPair))
+    checkSum ^= c; // Maintain running checksum as bytes are received
     
     switch (parseState){
       case P:  // Look for a preamble
@@ -60,13 +59,15 @@ void ParsePkt(BfrPair *payloadBfrPair){
           parseState = ER;
         }else{
 //          payloadLen = c - HeaderLength; // Calculate packet length
-          payloadLen = c; // Calculate packet length
+          payloadLen = c - HeaderLength; // Calculate packet length
+          PutBfrAddByte(payloadBfrPair, payloadLen);
 //          i = 0; // Start reading in data, starting with byte 0
           parseState = R;
         }
         break;
       case R:   // Read in data
-        if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex >= payloadLen){
+        PutBfrAddByte(payloadBfrPair, c);
+        if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex > payloadLen){
           if(checkSum){
             DispErr(ERR_CHECKSUM);
             checkSum = 0;
