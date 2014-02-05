@@ -38,7 +38,7 @@ void ClosePutBfr(BfrPair *bfrPair){
   return;
 }
 
-void openGetBfr(BfrPair *bfrPair){
+void OpenGetBfr(BfrPair *bfrPair){
   BfrOpen(&bfrPair->buffers[!(bfrPair->putBrfNum)]);
   
   return;

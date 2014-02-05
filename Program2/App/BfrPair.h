@@ -30,7 +30,7 @@ CPU_BOOLEAN GetBfrClosed(BfrPair *bfrPair);
 
 void ClosePutBfr(BfrPair *bfrPair);
 
-void openGetBfr(BfrPair *bfrPair);
+void OpenGetBfr(BfrPair *bfrPair);
 
 CPU_INT16S PutBfrAddByte(BfrPair *bfrPair,
                          CPU_INT16S byte);

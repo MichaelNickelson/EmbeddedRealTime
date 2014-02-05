@@ -4,6 +4,7 @@
 #include "Buffer.h"
 
 #define RXNE_MASK 0x0020
+#define TXE_MASK 0x0080
 
 #ifndef BfrSize
 #define BfrSize 4
@@ -48,13 +49,22 @@ void ServiceRx(){
 }
 
 void ServiceTx(){
-  
+  static USART_TypeDef *uart = USART2;
+  CPU_INT16U byte;
+  if(BfrPairSwappable(&oBfrPair))
+     BfrPairSwap(&oBfrPair);
+  if(((uart->SR) & TXE_MASK) && (GetBfrClosed(&oBfrPair))){
+    byte = GetBfrRemByte(&oBfrPair);
+    uart->DR = byte;
+  }
 }
 
 CPU_INT16S GetByte(void){
-  return 0;
+  return GetBfrRemByte(&iBfrPair);
+
 }
 
 CPU_INT16S PutByte(CPU_INT16S txChar){
-  return txChar;
+  CPU_INT16S retVal = PutBfrAddByte(&oBfrPair, txChar);
+  return retVal;
 }

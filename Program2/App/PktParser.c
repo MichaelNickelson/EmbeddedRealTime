@@ -26,16 +26,13 @@ typedef struct
 /* Function for packet handling */
 void ParsePkt(BfrPair *payloadBfrPair){
   static ParserState parseState = P;
-  static CPU_INT08U pb = 0, checkSum = 0,/* i = 0, */payloadLen;
-//  BfrPair iBfrPair;
-  // Initialize variables
-  CPU_INT16S    c;
-  CPU_INT08U    preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
+  static CPU_INT08U pb = 0, checkSum = 0, payloadLen;
+  CPU_INT08U preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
+  CPU_INT16S c;
 
-  if(GetBfrClosed(&iBfrPair)){
-    c = GetBfrRemByte(&iBfrPair);
-
-//  if(!PutBfrClosed(payloadBfrPair))
+  c = GetByte();
+  
+    if(c!=-1){
     checkSum ^= c; // Maintain running checksum as bytes are received
     
     switch (parseState){
@@ -43,7 +40,6 @@ void ParsePkt(BfrPair *payloadBfrPair){
         if (c == preamble[pb]){
           pb++;
         }else{ // If the wrong byte is found, go to error state
-//          PreambleError(pb+1);
           PutBfrAddByte(payloadBfrPair, -(pb+1));
           checkSum=0;
           pb = 0;
@@ -56,7 +52,6 @@ void ParsePkt(BfrPair *payloadBfrPair){
         break;
       case L: // Read in packet length
         if(c<ShortestPacket){ // Raise an error if the packet is too short
-//          DispErr(ERR_LEN);
           PutBfrAddByte(payloadBfrPair, ERR_LEN);
           ClosePutBfr(payloadBfrPair);
           parseState = ER;
@@ -71,7 +66,6 @@ void ParsePkt(BfrPair *payloadBfrPair){
           PutBfrAddByte(payloadBfrPair, c);
         }else{
           if(checkSum){
-//            DispErr(ERR_CHECKSUM);
             checkSum = 0;
             PutBfrReset(payloadBfrPair);
             PutBfrAddByte(payloadBfrPair, ERR_CHECKSUM);

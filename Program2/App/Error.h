@@ -4,8 +4,8 @@
 
 typedef enum {ERR_CHECKSUM = -4, 
               ERR_LEN = -5,
-              ERR_MESSAGE_TYPE,
-              ERR_UNKNOWN} Error_t;
+              ERR_MESSAGE_TYPE = -6,
+              ERR_UNKNOWN = -7} Error_t;
 
 typedef enum {ASS_ADDRESS} Assert_t;
 
