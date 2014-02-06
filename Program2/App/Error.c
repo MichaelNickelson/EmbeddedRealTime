@@ -1,28 +1,32 @@
 #include "includes.h"
 #include "Error.h"
+#include "Payload.h"
 
-void DispErr(Error_t e){
-  
-  BSP_Ser_Printf("\a*** ERROR: ");
+void DispErr(Error_t e, CPU_CHAR reply[]){
   
   switch(e){
+    case(ERR_PREAMBLE_1):
+      sprintf(reply, "\a*** ERROR: Bad Preamble Byte 1\n");
+      break;
+    case(ERR_PREAMBLE_2):
+      sprintf(reply, "\a*** ERROR: Bad Preamble Byte 2\n");
+      break;
+    case(ERR_PREAMBLE_3):
+      sprintf(reply, "\a*** ERROR: Bad Preamble Byte 3\n");
+      break;
     case(ERR_CHECKSUM):
-      BSP_Ser_Printf("Checksum error\n");
+      sprintf(reply, "\a*** ERROR: Checksum error\n");
       break;
     case(ERR_LEN):
-      BSP_Ser_Printf("Bad Packet Size\n");
+      sprintf(reply, "\a*** ERROR: Bad Packet Size\n");
       break;
-    case(ERR_MESSAGE_TYPE):
-      BSP_Ser_Printf("Unknown Message Type\n");
-      break;
-    case(ERR_UNKNOWN):
     default:
-      BSP_Ser_Printf("Unkown Exception\n");
+      sprintf(reply, "Unkown Exception\n");
       break;
   }
 }
 
-void DispAssert(Assert_t a){
+void DispAssert(Assert_t a, CPU_CHAR reply[]){
   
   BSP_Ser_Printf("\a*** Info: ");
   

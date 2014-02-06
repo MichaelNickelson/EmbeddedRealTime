@@ -26,7 +26,8 @@ typedef struct
 /* Function for packet handling */
 void ParsePkt(BfrPair *payloadBfrPair){
   static ParserState parseState = P;
-  static CPU_INT08U pb = 0, checkSum = 0, payloadLen;
+  static CPU_INT08U checkSum = 0, payloadLen;
+  static CPU_INT08S pb = 0;
   CPU_INT08U preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
   CPU_INT16S c;
 
@@ -41,6 +42,9 @@ void ParsePkt(BfrPair *payloadBfrPair){
           pb++;
         }else{ // If the wrong byte is found, go to error state
           PutBfrAddByte(payloadBfrPair, -(pb+1));
+          ClosePutBfr(payloadBfrPair);
+          if(BfrPairSwappable(payloadBfrPair))
+            BfrPairSwap(payloadBfrPair);
           checkSum=0;
           pb = 0;
           parseState = ER;
@@ -51,15 +55,18 @@ void ParsePkt(BfrPair *payloadBfrPair){
         }
         break;
       case L: // Read in packet length
-        if(c<ShortestPacket){ // Raise an error if the packet is too short
+//        if(c<ShortestPacket){ // Raise an error if the packet is too short
           PutBfrAddByte(payloadBfrPair, ERR_LEN);
           ClosePutBfr(payloadBfrPair);
+          if(BfrPairSwappable(payloadBfrPair))
+            BfrPairSwap(payloadBfrPair);
+          checkSum=0;
           parseState = ER;
-        }else{
-          payloadLen = c - HeaderLength; // Calculate packet length
-          PutBfrAddByte(payloadBfrPair, payloadLen);
-          parseState = R;
-        }
+//        }else{
+//          payloadLen = c - HeaderLength; // Calculate packet length
+//          PutBfrAddByte(payloadBfrPair, payloadLen);
+//          parseState = R;
+//        }
         break;
       case R:   // Read in data
         if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex < payloadLen){
@@ -70,6 +77,9 @@ void ParsePkt(BfrPair *payloadBfrPair){
             PutBfrReset(payloadBfrPair);
             PutBfrAddByte(payloadBfrPair, ERR_CHECKSUM);
             ClosePutBfr(payloadBfrPair);
+            if(BfrPairSwappable(payloadBfrPair))
+               BfrPairSwap(payloadBfrPair);
+            checkSum = 0;
             parseState = ER;
             break;
           }
@@ -87,7 +97,10 @@ void ParsePkt(BfrPair *payloadBfrPair){
           pb = 0;
           checkSum = 0;
         }
-        parseState = (pb >= HeaderLength-1) ?L:ER; // Move on if preamble found
+        if(pb >= HeaderLength-1){
+          parseState = L; // Move on if preamble found
+          pb = 0;
+        }
         break;
     }
   }
