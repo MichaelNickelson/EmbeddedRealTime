@@ -55,19 +55,22 @@ void ParseTimeStamp(Payload *payload, CPU_CHAR reply[]);
 void ParsePrecip(Payload *payload, CPU_CHAR reply[]);
 void ParseID(Payload *payload, CPU_CHAR reply[]);
 
-static BfrPair pBfrPair;
+static BfrPair payloadBfrPair;
 static CPU_INT08U pBfr0Space[PayloadBfrSize];
 static CPU_INT08U pBfr1Space[PayloadBfrSize];
 
-static BfrPair rBfrPair;
+static BfrPair replyBfrPair;
 static CPU_INT08U rBfr0Space[ReplyBfrSize];
 static CPU_INT08U rBfr1Space[ReplyBfrSize];
 
-void PayloadInit(BfrPair **payloadBfrPair, BfrPair **replyBfrPair){
-  BfrPairInit(&pBfrPair, pBfr0Space, pBfr1Space, PayloadBfrSize);
-  BfrPairInit(&rBfrPair, rBfr0Space, rBfr1Space, ReplyBfrSize);
-  *payloadBfrPair = &pBfrPair;
-  *replyBfrPair = &rBfrPair;
+void PayloadInit(BfrPair **pBfrPair, BfrPair **rBfrPair){
+  /* Modifying payloadBfrPair and replyBfrPair directly seems to cause problems
+     so placeholder variables pBfrPair and rBfrPair are created then mapped
+     onto payloadBfrPair and replyBfrPair */
+  BfrPairInit(&payloadBfrPair, pBfr0Space, pBfr1Space, PayloadBfrSize);
+  BfrPairInit(&replyBfrPair, rBfr0Space, rBfr1Space, ReplyBfrSize);
+  *pBfrPair = &payloadBfrPair;
+  *rBfrPair = &replyBfrPair;
   
   return;
 }
@@ -78,66 +81,58 @@ void PayloadTask(){
   Payload *payload;
   
   // Assign easy to read names to message ID
-  enum {MSG_TEMP=1,
-        MSG_PRESSURE=2,
-        MSG_HUMIDITY=3,
-        MSG_WIND=4,
-        MSG_RADIATION=5,
-        MSG_TIMESTAMP=6,
-        MSG_PRECIPITATION=7,
-        MSG_SENSORID=8};
+  enum {MSG_TEMP=1, MSG_PRESSURE=2, MSG_HUMIDITY=3, MSG_WIND=4,
+        MSG_RADIATION=5, MSG_TIMESTAMP=6, MSG_PRECIPITATION=7, MSG_SENSORID=8};
   
-    if(GetBfrClosed(&pBfrPair)&!PutBfrClosed(&rBfrPair)){
-      payload = (Payload *) GetBfrAddr(&pBfrPair);
-      if(payload->payloadLen <= 0)
-        DispErr((Error_t) payload->payloadLen, reply);
-      else{
-        if(payload->dstAddr == MyAddress){
-          switch(payload->msgType){
-            case(MSG_TEMP):
-              ParseTemp(payload, reply);
-              break;
-            case(MSG_PRESSURE):
-              ParsePressure(payload, reply);
-              break;
-            case(MSG_HUMIDITY):
-              ParseHumidity(payload, reply);
-              break;
-            case(MSG_WIND):
-              ParseWind(payload, reply);
-              break;
-            case(MSG_RADIATION):
-              ParseRadiation(payload, reply);
-              break;
-            case(MSG_TIMESTAMP):
-              ParseTimeStamp(payload, reply);
-              break;
-            case(MSG_PRECIPITATION):
-              ParsePrecip(payload, reply);
-              break;
-            case(MSG_SENSORID):
-              ParseID(payload, reply);
-              break;
-            default:  // Handle unknown message types
-              DispErr((Error_t) payload->msgType, reply);
-              break;
+  if(GetBfrClosed(&payloadBfrPair)&!PutBfrClosed(&replyBfrPair)){
+    payload = (Payload *) GetBfrAddr(&payloadBfrPair);
+    if(payload->payloadLen <= 0)
+      DispErr((Error_t) payload->payloadLen, reply);
+    else{
+      if(payload->dstAddr == MyAddress){
+        switch(payload->msgType){
+          case(MSG_TEMP):
+            ParseTemp(payload, reply);
+            break;
+          case(MSG_PRESSURE):
+            ParsePressure(payload, reply);
+            break;
+          case(MSG_HUMIDITY):
+            ParseHumidity(payload, reply);
+            break;
+          case(MSG_WIND):
+            ParseWind(payload, reply);
+            break;
+          case(MSG_RADIATION):
+            ParseRadiation(payload, reply);
+            break;
+          case(MSG_TIMESTAMP):
+            ParseTimeStamp(payload, reply);
+            break;
+          case(MSG_PRECIPITATION):
+            ParsePrecip(payload, reply);
+            break;
+          case(MSG_SENSORID):
+            ParseID(payload, reply);
+            break;
+          default:  // Handle unknown message types
+            DispErr((Error_t) payload->msgType, reply);
+            break;
         }
-        }else{
-          DispAssert(ASS_ADDRESS, reply);
-  //        OpenGetBfr(&pBfrPair);
-  //        ClosePutBfr(&rBfrPair);
-          if(BfrPairSwappable(&rBfrPair))
-            BfrPairSwap(&rBfrPair);
-        }
+      }else{
+        DispAssert(ASS_ADDRESS, reply);
+        if(BfrPairSwappable(&replyBfrPair))
+          BfrPairSwap(&replyBfrPair);
       }
-        for(CPU_INT08U j=0;j<strlen(reply);j++)
-          PutBfrAddByte(&rBfrPair, reply[j]);
-        
-        OpenGetBfr(&pBfrPair);
-        ClosePutBfr(&rBfrPair);
-        if(BfrPairSwappable(&rBfrPair))
-          BfrPairSwap(&rBfrPair);
-    
+    }
+      for(CPU_INT08U j=0;j<strlen(reply);j++)
+        PutBfrAddByte(&replyBfrPair, reply[j]);
+      
+      OpenGetBfr(&payloadBfrPair);
+      ClosePutBfr(&replyBfrPair);
+      if(BfrPairSwappable(&replyBfrPair))
+        BfrPairSwap(&replyBfrPair);
+  
   }
 }
 

@@ -21,28 +21,19 @@ void DispErr(Error_t e, CPU_CHAR reply[]){
       sprintf(reply, "\a*** ERROR: Bad Packet Size\n");
       break;
     default:
-      sprintf(reply, "Unkown Exception\n");
+      sprintf(reply, "\a*** ERROR: Unkown Message Type\n");
       break;
   }
 }
 
 void DispAssert(Assert_t a, CPU_CHAR reply[]){
-  
-  BSP_Ser_Printf("\a*** Info: ");
-  
+
   switch(a){
     case(ASS_ADDRESS):
-      BSP_Ser_Printf("Not My Address\n");
+      sprintf(reply, "\a*** Info: Not My Address\n");
       break;
     default:
-      BSP_Ser_Printf("Unknown Assertion\n");
+      sprintf(reply, "\a*** Unknown Assertion\n");
       break;
   }
-}
-
-/* Separating preamble errors results in an extra function, but allows for 
-an arbitrary number of preamble bytes. */
-void PreambleError(CPU_INT08U bn){
-  BSP_Ser_Printf("\a*** ERROR: ");
-  BSP_Ser_Printf("Bad Preamble Byte %d\n",bn);
 }
