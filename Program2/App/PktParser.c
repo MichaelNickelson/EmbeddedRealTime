@@ -55,18 +55,18 @@ void ParsePkt(BfrPair *payloadBfrPair){
         }
         break;
       case L: // Read in packet length
-//        if(c<ShortestPacket){ // Raise an error if the packet is too short
+        if(c<ShortestPacket){ // Raise an error if the packet is too short
           PutBfrAddByte(payloadBfrPair, ERR_LEN);
           ClosePutBfr(payloadBfrPair);
           if(BfrPairSwappable(payloadBfrPair))
             BfrPairSwap(payloadBfrPair);
           checkSum=0;
           parseState = ER;
-//        }else{
-//          payloadLen = c - HeaderLength; // Calculate packet length
-//          PutBfrAddByte(payloadBfrPair, payloadLen);
-//          parseState = R;
-//        }
+        }else{
+          payloadLen = c - HeaderLength; // Calculate packet length
+          PutBfrAddByte(payloadBfrPair, payloadLen);
+          parseState = R;
+        }
         break;
       case R:   // Read in data
         if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex < payloadLen){

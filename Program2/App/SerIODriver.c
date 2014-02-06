@@ -19,7 +19,7 @@ static CPU_INT08U oBfr0Space[4];
 static CPU_INT08U oBfr1Space[4];
 
 void InitSerIO(){
-  static USART_TypeDef *uart = USART2;
+  USART_TypeDef *uart = USART2;
   
   uart->BRR = 0x0EA6;
   uart->CR1 = 0x200C;
@@ -37,7 +37,7 @@ void InitSerIO(){
 }
 
 void ServiceRx(){
-  static USART_TypeDef *uart = USART2;
+  USART_TypeDef *uart = USART2;
   
   if(((uart->SR) & RXNE_MASK) && (!PutBfrClosed(&iBfrPair)))
     PutBfrAddByte(&iBfrPair, uart->DR);
@@ -49,7 +49,7 @@ void ServiceRx(){
 }
 
 void ServiceTx(){
-  static USART_TypeDef *uart = USART2;
+  USART_TypeDef *uart = USART2;
   CPU_INT16U byte;
   if(BfrPairSwappable(&oBfrPair))
      BfrPairSwap(&oBfrPair);
