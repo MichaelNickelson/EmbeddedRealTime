@@ -14,7 +14,7 @@
 #define ShortestPacket 8
 
 /* Parser state data type */
-typedef enum { P, L, R, ER1, ER2 } ParserState;
+typedef enum { P, L, R, ER } ParserState;
 
 /* Packet structure */
 typedef struct
@@ -26,76 +26,85 @@ typedef struct
 /* Function for packet handling */
 void ParsePkt(BfrPair *payloadBfrPair){
   static ParserState parseState = P;
-  static CPU_INT08U checkSum = 0, payloadLen;
+  static CPU_INT08U checkSum = 0;
+  static CPU_INT08U payloadLen;
   static CPU_INT08S pb = 0;
   CPU_INT08U preamble[HeaderLength-1] = {0x03, 0xEF, 0xAF};
   CPU_INT16S c;
 
-  c = GetByte();
-  
-    if(c!=-1){
-    checkSum ^= c; // Maintain running checksum as bytes are received
+  if(GetBfrClosed(&iBfrPair)&!PutBfrClosed(payloadBfrPair)){
+    c = GetByte();
     
-    switch (parseState){
-      case P:  // Look for a preamble
-        if (c == preamble[pb]){
-          pb++;
-        }else{ // If the wrong byte is found, go to error state
-          PutBfrAddByte(payloadBfrPair, -(pb+1));
-          parseState = ER1;
-        }
-        if (pb >= HeaderLength-1){ // Once the full header is found, move on
-          pb = 0;
-          parseState = L;
-        }
-        break;
-      case L: // Read in packet length
-        if(c<ShortestPacket){ // Raise an error if the packet is too short
-          PutBfrAddByte(payloadBfrPair, ERR_LEN);
-          parseState = ER1;
-        }else{
-          payloadLen = c - HeaderLength; // Calculate packet length
-          PutBfrAddByte(payloadBfrPair, payloadLen);
-          parseState = R;
-        }
-        break;
-      case R:   // Read in data
-        if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex < payloadLen){
-          PutBfrAddByte(payloadBfrPair, c);
-        }else{
-          if(checkSum){
-            PutBfrReset(payloadBfrPair);
-            PutBfrAddByte(payloadBfrPair, ERR_CHECKSUM);
-            parseState = ER1;
-            break;
+      if(c!=-1){
+      checkSum ^= c; // Maintain running checksum as bytes are received
+      
+      switch (parseState){
+        case P:  // Look for a preamble
+          if (c == preamble[pb]){
+            pb++;
+          }else{ // If the wrong byte is found, go to error state
+            PutBfrAddByte(payloadBfrPair, -(pb+1));
+            ClosePutBfr(payloadBfrPair);
+            if(BfrPairSwappable(payloadBfrPair))
+              BfrPairSwap(payloadBfrPair);
+            checkSum=0;
+            pb = 0;
+            parseState = ER;
           }
-          parseState = P;
-          ClosePutBfr(payloadBfrPair);
-          if(BfrPairSwappable(payloadBfrPair))
-            BfrPairSwap(payloadBfrPair);
-        }
-        break;
-      case ER1:  // Reset variables as needed
-        ClosePutBfr(payloadBfrPair);
-        if(BfrPairSwappable(payloadBfrPair))
-          BfrPairSwap(payloadBfrPair);
-        checkSum=0;
-        pb = 0;
-        parseState = ER2;
-        break;
-      case ER2:  // Begin searching for a new message
-      default:
-        if (c == preamble[pb]){
-          pb++;
-        }else{ // If the wrong byte is found, stay in error state
-          pb = 0;
-          checkSum = 0;
-        }
-        if(pb >= HeaderLength-1){
-          parseState = L; // Move on if preamble found
-          pb = 0;
-        }
-        break;
+          if (pb >= HeaderLength-1){ // Once the full header is found, move on
+            pb = 0;
+            parseState = L;
+          }
+          break;
+        case L: // Read in packet length
+          if(c<ShortestPacket){ // Raise an error if the packet is too short
+            PutBfrAddByte(payloadBfrPair, ERR_LEN);
+            ClosePutBfr(payloadBfrPair);
+            if(BfrPairSwappable(payloadBfrPair))
+              BfrPairSwap(payloadBfrPair);
+            checkSum=0;
+            parseState = ER;
+          }else{
+            payloadLen = c - HeaderLength; // Calculate packet length
+            PutBfrAddByte(payloadBfrPair, payloadLen);
+            parseState = R;
+          }
+          break;
+        case R:   // Read in data
+          if(payloadBfrPair->buffers[payloadBfrPair->putBrfNum].putIndex < payloadLen){
+            PutBfrAddByte(payloadBfrPair, c);
+          }else{
+            if(checkSum){
+              checkSum = 0;
+              PutBfrReset(payloadBfrPair);
+              PutBfrAddByte(payloadBfrPair, ERR_CHECKSUM);
+              ClosePutBfr(payloadBfrPair);
+              if(BfrPairSwappable(payloadBfrPair))
+                 BfrPairSwap(payloadBfrPair);
+              checkSum = 0;
+              parseState = ER;
+              break;
+            }
+            parseState = P;
+            ClosePutBfr(payloadBfrPair);
+            if(BfrPairSwappable(payloadBfrPair))
+              BfrPairSwap(payloadBfrPair);
+          }
+          break;
+        case ER:  // If an error occurs, or a an unknown state arises,
+        default:  // look for a  full preamble.
+          if (c == preamble[pb]){
+            pb++;
+          }else{ // If the wrong byte is found, stay in error state
+            pb = 0;
+            checkSum = 0;
+          }
+          if(pb >= HeaderLength-1){
+            parseState = L; // Move on if preamble found
+            pb = 0;
+          }
+          break;
+      }
     }
   }
 }

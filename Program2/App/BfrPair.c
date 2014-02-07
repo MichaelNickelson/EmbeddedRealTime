@@ -51,15 +51,11 @@ CPU_INT16S PutBfrAddByte(BfrPair *bfrPair, CPU_INT16S byte){
 }
 
 CPU_INT16S GetBfrNextByte(BfrPair *bfrPair){
-  CPU_INT16S retVal = BfrNextByte(&bfrPair->buffers[!(bfrPair->putBrfNum)]);
-  
-  return retVal;
+  return BfrNextByte(&bfrPair->buffers[!(bfrPair->putBrfNum)]);
 }
 
 CPU_INT16S GetBfrRemByte(BfrPair *bfrPair){
-    CPU_INT16S retVal = BfrRemoveByte(&bfrPair->buffers[!(bfrPair->putBrfNum)]);
-
-    return retVal;
+    return BfrRemoveByte(&bfrPair->buffers[!(bfrPair->putBrfNum)]);
 }
 
 CPU_BOOLEAN BfrPairSwappable(BfrPair *bfrPair){

@@ -46,6 +46,8 @@ typedef struct
   } dataPart;
 } Payload;
 
+typedef enum { P, R } PayloadState;
+
 void ParseTemp(Payload *payload, CPU_CHAR reply[]);
 void ParsePressure(Payload *payload, CPU_CHAR reply[]);
 void ParseHumidity(Payload *payload, CPU_CHAR reply[]);
@@ -54,6 +56,7 @@ void ParseRadiation(Payload *payload, CPU_CHAR reply[]);
 void ParseTimeStamp(Payload *payload, CPU_CHAR reply[]);
 void ParsePrecip(Payload *payload, CPU_CHAR reply[]);
 void ParseID(Payload *payload, CPU_CHAR reply[]);
+CPU_BOOLEAN SendReply(CPU_CHAR reply[]);
 
 static BfrPair payloadBfrPair;
 static CPU_INT08U pBfr0Space[PayloadBfrSize];
@@ -76,64 +79,70 @@ void PayloadInit(BfrPair **pBfrPair, BfrPair **rBfrPair){
 }
 
 void PayloadTask(){
+  CPU_BOOLEAN done = FALSE;
+  static PayloadState pState = P;
   const CPU_INT08U MyAddress = 1; // Receiver address
-  CPU_CHAR reply[ReplyBfrSize];
+  static CPU_CHAR reply[ReplyBfrSize];
   Payload *payload;
   
   // Assign easy to read names to message ID
   enum {MSG_TEMP=1, MSG_PRESSURE=2, MSG_HUMIDITY=3, MSG_WIND=4,
         MSG_RADIATION=5, MSG_TIMESTAMP=6, MSG_PRECIPITATION=7, MSG_SENSORID=8};
   
+  if(pState == P){
   if(GetBfrClosed(&payloadBfrPair)&!PutBfrClosed(&replyBfrPair)){
-    payload = (Payload *) GetBfrAddr(&payloadBfrPair);
-    if(payload->payloadLen <= 0)
-      DispErr((Error_t) payload->payloadLen, reply);
-    else{
-      if(payload->dstAddr == MyAddress){
-        switch(payload->msgType){
-          case(MSG_TEMP):
-            ParseTemp(payload, reply);
-            break;
-          case(MSG_PRESSURE):
-            ParsePressure(payload, reply);
-            break;
-          case(MSG_HUMIDITY):
-            ParseHumidity(payload, reply);
-            break;
-          case(MSG_WIND):
-            ParseWind(payload, reply);
-            break;
-          case(MSG_RADIATION):
-            ParseRadiation(payload, reply);
-            break;
-          case(MSG_TIMESTAMP):
-            ParseTimeStamp(payload, reply);
-            break;
-          case(MSG_PRECIPITATION):
-            ParsePrecip(payload, reply);
-            break;
-          case(MSG_SENSORID):
-            ParseID(payload, reply);
-            break;
-          default:  // Handle unknown message types
-            DispErr((Error_t) payload->msgType, reply);
-            break;
-        }
+    
+      payload = (Payload *) GetBfrAddr(&payloadBfrPair);
+      if(payload->payloadLen <= 0){
+        DispErr((Error_t) payload->payloadLen, reply);
+        pState = R;
       }else{
-        DispAssert(ASS_ADDRESS, reply);
-        if(BfrPairSwappable(&replyBfrPair))
-          BfrPairSwap(&replyBfrPair);
+        if(payload->dstAddr == MyAddress){
+          switch(payload->msgType){
+            case(MSG_TEMP):
+              ParseTemp(payload, reply);
+              break;
+            case(MSG_PRESSURE):
+              ParsePressure(payload, reply);
+              break;
+            case(MSG_HUMIDITY):
+              ParseHumidity(payload, reply);
+              break;
+            case(MSG_WIND):
+              ParseWind(payload, reply);
+              break;
+            case(MSG_RADIATION):
+              ParseRadiation(payload, reply);
+              break;
+            case(MSG_TIMESTAMP):
+              ParseTimeStamp(payload, reply);
+              break;
+            case(MSG_PRECIPITATION):
+              ParsePrecip(payload, reply);
+              break;
+            case(MSG_SENSORID):
+              ParseID(payload, reply);
+              break;
+            default:  // Handle unknown message types
+              DispErr((Error_t) payload->msgType, reply);
+              break;
+          }
+          pState = R;
+        }else{
+          DispAssert(ASS_ADDRESS, reply);
+          if(BfrPairSwappable(&replyBfrPair))
+            BfrPairSwap(&replyBfrPair);
+        }
       }
-    }
-      for(CPU_INT08U j=0;j<strlen(reply);j++)
-        PutBfrAddByte(&replyBfrPair, reply[j]);
-      
-      OpenGetBfr(&payloadBfrPair);
-      ClosePutBfr(&replyBfrPair);
-      if(BfrPairSwappable(&replyBfrPair))
-        BfrPairSwap(&replyBfrPair);
-  
+              OpenGetBfr(&payloadBfrPair);
+      if(BfrPairSwappable(&payloadBfrPair))
+            BfrPairSwap(&payloadBfrPair);
   }
+  }else{
+      done = SendReply(reply);
+      if(done)
+        pState = P;
+    }
 }
 
 /* Parse and print each message in its own function */
@@ -217,6 +226,23 @@ void ParseID(Payload *payload, CPU_CHAR reply[]){
   sprintf(reply, "\nSOURCE NODE %d: SENSOR ID MESSAGE\n  Node ID = %s\n\0",
           payload->srcAddr,
           payload->dataPart.id);
+}
+
+CPU_BOOLEAN SendReply(CPU_CHAR reply[]){
+  static CPU_INT08S j = 0;
+  CPU_BOOLEAN retVal = FALSE;
+  if(j<strlen(reply)){
+    PutBfrAddByte(&replyBfrPair, reply[j]);
+    j++;
+  }else{
+    ClosePutBfr(&replyBfrPair);
+    if(BfrPairSwappable(&replyBfrPair))
+      BfrPairSwap(&replyBfrPair);
+    j = 0;
+    retVal = TRUE;
+  }
+  
+  return retVal;
 }
 
 // Byte reversal functions for 1 and 2 word ints

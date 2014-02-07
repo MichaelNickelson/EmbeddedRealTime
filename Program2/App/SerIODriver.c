@@ -59,13 +59,12 @@ void ServiceRx(){
 
 void ServiceTx(){
   USART_TypeDef *uart = USART2;
-  CPU_INT16U byte;
-  if(BfrPairSwappable(&oBfrPair))
+  
+  if((GetBfrClosed(&oBfrPair)) && ((uart->SR) & TXE_MASK))
+    uart->DR = GetBfrRemByte(&oBfrPair);
+  
+   if(BfrPairSwappable(&oBfrPair))
      BfrPairSwap(&oBfrPair);
-  if(((uart->SR) & TXE_MASK) && (GetBfrClosed(&oBfrPair))){
-    byte = GetBfrRemByte(&oBfrPair);
-    uart->DR = byte;
-  }
 }
 
 CPU_INT16S GetByte(void){
