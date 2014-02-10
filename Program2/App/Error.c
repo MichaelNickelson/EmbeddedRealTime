@@ -1,7 +1,22 @@
+/*--------------- E r r o r . c ---------------
+
+by: Michael Nickelson
+
+PURPOSE
+Generate error and assert messages
+
+CHANGES
+02/19/2014 mn - Initial submission
+*/
+
 #include "includes.h"
 #include "Error.h"
 #include "Payload.h"
 
+/*--------------- D i s p E r r o r ---------------
+Generate an error message sent to reply array and sent to reply buffer by
+payload task.
+*/
 void DispErr(Error_t e, CPU_CHAR reply[]){
   
   switch(e){
@@ -26,6 +41,10 @@ void DispErr(Error_t e, CPU_CHAR reply[]){
   }
 }
 
+/*--------------- D i s p A s s e r t ---------------
+Generate an assert message sent to reply array and sent to reply buffer by
+payload task.
+*/
 void DispAssert(Assert_t a, CPU_CHAR reply[]){
 
   switch(a){

@@ -18,10 +18,6 @@ CHANGES
 #define RXNE_MASK 0x0020
 #define TXE_MASK 0x0080
 
-#ifndef BfrSize
-#define BfrSize 4
-#endif
-
 /*----- Function prototypes -----*/
 void InitSerIO();
 void ServiceRx();
@@ -64,8 +60,6 @@ void InitSerIO(){
   
   BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, BfrSize);
   BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, BfrSize);
-  
-  return;
 }
 
 /*----------- ServiceRx() -----------
@@ -81,8 +75,6 @@ void ServiceRx(){
   
   if(BfrPairSwappable(&iBfrPair))
     BfrPairSwap(&iBfrPair);
-  
-  return;
 }
 
 /*----------- ServiceTx() -----------
