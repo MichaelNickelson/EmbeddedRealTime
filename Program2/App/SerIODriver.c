@@ -1,8 +1,20 @@
+/*--------------- S e r I O D r i v e r . c ---------------
+
+by: Michael Nickelson
+
+PURPOSE
+This module sets up serial IO and appropriate buffers
+
+CHANGES
+02/19/2014 mn - Initial submission
+*/
+
 #include "SerIODriver.h"
 #include "BfrPair.h"
 #include "includes.h"
 #include "Buffer.h"
 
+/*----- Constant definitions ----- */
 #define RXNE_MASK 0x0020
 #define TXE_MASK 0x0080
 
@@ -10,14 +22,25 @@
 #define BfrSize 4
 #endif
 
+/*----- Function prototypes -----*/
+void InitSerIO();
+void ServiceRx();
+void ServiceTx();
+CPU_INT16S GetByte();
+CPU_INT16S PutByte(CPU_INT16S txChar);
+
+/*----- Declare input and output buffer pairs -----*/
 BfrPair iBfrPair;
 CPU_INT08U iBfr0Space[BfrSize];
 CPU_INT08U iBfr1Space[BfrSize];
 
-static BfrPair oBfrPair;
-static CPU_INT08U oBfr0Space[BfrSize];
-static CPU_INT08U oBfr1Space[BfrSize];
+BfrPair oBfrPair;
+CPU_INT08U oBfr0Space[BfrSize];
+CPU_INT08U oBfr1Space[BfrSize];
 
+/*----------- InitSerIO() -----------
+Configure HW and initialize buffers
+*/
 void InitSerIO(){
   USART_TypeDef *uart = USART2;
   
@@ -45,6 +68,11 @@ void InitSerIO(){
   return;
 }
 
+/*----------- ServiceRx() -----------
+If a new byte is available in the Status Register grab it and put it into the
+iBfrPair PutBfr.
+Swap buffers if needed.
+*/
 void ServiceRx(){
   USART_TypeDef *uart = USART2;
   
@@ -57,6 +85,10 @@ void ServiceRx(){
   return;
 }
 
+/*----------- ServiceTx() -----------
+If the Get buffer is closed, start dumping it out to the UART.
+Swap buffers if needed.
+*/
 void ServiceTx(){
   USART_TypeDef *uart = USART2;
   
@@ -67,10 +99,18 @@ void ServiceTx(){
      BfrPairSwap(&oBfrPair);
 }
 
-CPU_INT16S GetByte(void){
+/*----------- GetByte() -----------
+Get a byte from iBfrPair if possible.
+A response of -1 indicates an empty buffer.
+*/
+CPU_INT16S GetByte(){
   return GetBfrRemByte(&iBfrPair);
 }
 
+/*----------- PutByte() -----------
+Send a byte to the output put buffer.
+A negative return value indicates a full buffer
+*/
 CPU_INT16S PutByte(CPU_INT16S txChar){
   return PutBfrAddByte(&oBfrPair, txChar);;
 }

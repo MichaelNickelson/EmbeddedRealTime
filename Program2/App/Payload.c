@@ -132,6 +132,7 @@ void PayloadTask(){
           DispAssert(ASS_ADDRESS, reply);
           if(BfrPairSwappable(&replyBfrPair))
             BfrPairSwap(&replyBfrPair);
+          pState = R;
         }
       }
               OpenGetBfr(&payloadBfrPair);

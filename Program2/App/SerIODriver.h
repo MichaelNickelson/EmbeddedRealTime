@@ -5,10 +5,6 @@
 #include "includes.h"
 #include "BfrPair.h"
 
-//static BfrPair iBfrPair;
-//static CPU_INT08U iBfr0Space[4];
-//static CPU_INT08U iBfr1Space[4];
-
 extern BfrPair iBfrPair;
 extern CPU_INT08U iBfr0Space[4];
 extern CPU_INT08U iBfr1Space[4];
