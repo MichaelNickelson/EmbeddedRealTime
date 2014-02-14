@@ -70,8 +70,11 @@ Swap buffers if needed.
 void ServiceRx(){
   USART_TypeDef *uart = USART2;
   
-  if(((uart->SR) & RXNE_MASK) && (!PutBfrClosed(&iBfrPair)))
-    PutBfrAddByte(&iBfrPair, uart->DR);
+  if((uart->SR) & RXNE_MASK){
+    if(!PutBfrClosed(&iBfrPair)){
+      PutBfrAddByte(&iBfrPair, uart->DR);
+    }
+  }
 }
 
 /*----------- ServiceTx() -----------
@@ -82,9 +85,11 @@ void ServiceTx(){
   USART_TypeDef *uart = USART2;
   CPU_INT16S c;
   
-  if(((uart->SR) & TXE_MASK) && (GetBfrClosed(&oBfrPair))){
-    c = GetBfrRemByte(&oBfrPair);
-    uart->DR = c;
+  if((uart->SR) & TXE_MASK){
+    if(GetBfrClosed(&oBfrPair)){
+      c = GetBfrRemByte(&oBfrPair);
+      uart->DR = c;
+    }
   }
 }
 
