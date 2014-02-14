@@ -17,8 +17,14 @@ CHANGES
 /*----- Constant definitions ----- */
 #define RXNE_MASK 0x0020
 #define TXE_MASK 0x0080
+#define USART2ENA 0x00000040
+#define TXEIE_MASK 0x0080
+#define RXNEIE_MASK 0x0020
+#define SETENA1 (*((CPU_INT32U *) 0xE000E104))
+#define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
 
 /*----- Function prototypes -----*/
+void SerialISR(void);
 void InitSerIO();
 void ServiceRx();
 void ServiceTx();
@@ -34,6 +40,14 @@ BfrPair oBfrPair;
 CPU_INT08U oBfr0Space[BfrSize];
 CPU_INT08U oBfr1Space[BfrSize];
 
+/*----------- SerialISR() -----------
+Interrupt routine tripped by USART2
+*/
+void SerialISR(void){
+  ServiceRx();
+  ServiceTx();
+}
+
 /*----------- InitSerIO() -----------
 Configure HW and initialize buffers
 */
@@ -43,8 +57,9 @@ void InitSerIO(){
   // Set UART baud rate to 9600bps
   uart->BRR = 0x0EA6;
   
-  // Enable UART, Tx, and Rx
-  uart->CR1 = 0x200C;
+  /* Enable UART, Tx, and Rx
+  as well as interrupts. */
+  uart->CR1 = 0x20AC;
   
   // Set 1 stop bit
   uart->CR2 = 0x0000;
@@ -58,6 +73,9 @@ void InitSerIO(){
   afio->MAPR = 0x0008;
 //  afio->MAPR = 0x0010;
   
+  // Enable interrupts on USART2
+  SETENA1 = USART2ENA;
+  
   BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, BfrSize);
   BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, BfrSize);
 }
@@ -70,8 +88,13 @@ Swap buffers if needed.
 void ServiceRx(){
   USART_TypeDef *uart = USART2;
   
-  if(((uart->SR) & RXNE_MASK) && (!PutBfrClosed(&iBfrPair)))
-    PutBfrAddByte(&iBfrPair, uart->DR);
+  if((uart->SR) & RXNE_MASK){
+    if(!PutBfrClosed(&iBfrPair)){
+      PutBfrAddByte(&iBfrPair, uart->DR);
+    }else{
+      uart->CR1 = uart->CR1 ^ RXNEIE_MASK;
+    }
+  }
 }
 
 /*----------- ServiceTx() -----------
@@ -82,9 +105,13 @@ void ServiceTx(){
   USART_TypeDef *uart = USART2;
   CPU_INT16S c;
   
-  if(((uart->SR) & TXE_MASK) && (GetBfrClosed(&oBfrPair))){
-    c = GetBfrRemByte(&oBfrPair);
-    uart->DR = c;
+  if((uart->SR) & TXE_MASK){
+    if(GetBfrClosed(&oBfrPair)){
+      c = GetBfrRemByte(&oBfrPair);
+      uart->DR = c;
+    }else{
+      uart->CR1 = uart->CR1 ^ TXEIE_MASK;
+    }
   }
 }
 
@@ -93,10 +120,18 @@ Get a byte from iBfrPair if possible.
 A response of -1 indicates an empty buffer.
 */
 CPU_INT16S GetByte(){
+  CPU_INT16S retVal = -1;
+  USART_TypeDef *uart = USART2;
+  
   if(BfrPairSwappable(&iBfrPair))
     BfrPairSwap(&iBfrPair);
   
-  return GetBfrRemByte(&iBfrPair);
+  if(GetBfrClosed(&iBfrPair)){
+    uart->CR1 = uart->CR1 | RXNEIE_MASK;
+    retVal = GetBfrRemByte(&iBfrPair);
+  }
+  
+  return retVal;
 }
 
 /*----------- PutByte() -----------
@@ -105,6 +140,7 @@ A negative return value indicates a full buffer
 */
 CPU_INT16S PutByte(CPU_INT16S txChar){
   CPU_INT16S retVal = -1;
+  USART_TypeDef *uart = USART2;
   
   if(BfrPairSwappable(&oBfrPair))
      BfrPairSwap(&oBfrPair);
@@ -112,6 +148,7 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
   if(!PutBfrClosed(&oBfrPair)){
     PutBfrAddByte(&oBfrPair,txChar);
     retVal = txChar;
+    uart->CR1 = uart->CR1 | TXEIE_MASK;
   }
   
   return retVal;

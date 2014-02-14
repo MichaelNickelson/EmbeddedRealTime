@@ -33,6 +33,7 @@ extern CPU_INT08U oBfr1Space[BfrSize];
 
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
+void SerialISR(void);
 void InitSerIO();
 void ServiceRx();
 void ServiceTx();
