@@ -1,44 +1,58 @@
+/*--------------- E r r o r . c ---------------
+
+by: Michael Nickelson
+
+PURPOSE
+Generate error and assert messages
+
+CHANGES
+02/19/2014 mn - Initial submission
+*/
+
 #include "includes.h"
 #include "Error.h"
+#include "Payload.h"
 
-void DispErr(Error_t e){
-  
-  BSP_Ser_Printf("\a*** ERROR: ");
+/*--------------- D i s p E r r o r ---------------
+Generate an error message sent to reply array and sent to reply buffer by
+payload task.
+*/
+void DispErr(Error_t e, CPU_CHAR reply[]){
   
   switch(e){
+    case(ERR_PREAMBLE_1):
+      sprintf(reply, "\a*** ERROR: Bad Preamble Byte 1\n");
+      break;
+    case(ERR_PREAMBLE_2):
+      sprintf(reply, "\a*** ERROR: Bad Preamble Byte 2\n");
+      break;
+    case(ERR_PREAMBLE_3):
+      sprintf(reply, "\a*** ERROR: Bad Preamble Byte 3\n");
+      break;
     case(ERR_CHECKSUM):
-      BSP_Ser_Printf("Checksum error\n");
+      sprintf(reply, "\a*** ERROR: Checksum error\n");
       break;
     case(ERR_LEN):
-      BSP_Ser_Printf("Bad Packet Size\n");
+      sprintf(reply, "\a*** ERROR: Bad Packet Size\n");
       break;
-    case(ERR_MESSAGE_TYPE):
-      BSP_Ser_Printf("Unknown Message Type\n");
-      break;
-    case(ERR_UNKNOWN):
     default:
-      BSP_Ser_Printf("Unkown Exception\n");
+      sprintf(reply, "\a*** ERROR: Unkown Message Type\n");
       break;
   }
 }
 
-void DispAssert(Assert_t a){
-  
-  BSP_Ser_Printf("\a*** Info: ");
-  
+/*--------------- D i s p A s s e r t ---------------
+Generate an assert message sent to reply array and sent to reply buffer by
+payload task.
+*/
+void DispAssert(Assert_t a, CPU_CHAR reply[]){
+
   switch(a){
     case(ASS_ADDRESS):
-      BSP_Ser_Printf("Not My Address\n");
+      sprintf(reply, "\a*** Info: Not My Address\n");
       break;
     default:
-      BSP_Ser_Printf("Unknown Assertion\n");
+      sprintf(reply, "\a*** Unknown Assertion\n");
       break;
   }
-}
-
-/* Separating preamble errors results in an extra function, but allows for 
-an arbitrary number of preamble bytes. */
-void PreambleError(CPU_INT08U bn){
-  BSP_Ser_Printf("\a*** ERROR: ");
-  BSP_Ser_Printf("Bad Preamble Byte %d\n",bn);
 }
