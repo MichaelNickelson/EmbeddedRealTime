@@ -72,9 +72,6 @@ void ServiceRx(){
   
   if(((uart->SR) & RXNE_MASK) && (!PutBfrClosed(&iBfrPair)))
     PutBfrAddByte(&iBfrPair, uart->DR);
-  
-  if(BfrPairSwappable(&iBfrPair))
-    BfrPairSwap(&iBfrPair);
 }
 
 /*----------- ServiceTx() -----------
@@ -83,12 +80,12 @@ Swap buffers if needed.
 */
 void ServiceTx(){
   USART_TypeDef *uart = USART2;
+  CPU_INT16S c;
   
-  if((GetBfrClosed(&oBfrPair)) && ((uart->SR) & TXE_MASK))
-    uart->DR = GetBfrRemByte(&oBfrPair);
-  
-   if(BfrPairSwappable(&oBfrPair))
-     BfrPairSwap(&oBfrPair);
+  if(((uart->SR) & TXE_MASK) && (GetBfrClosed(&oBfrPair))){
+    c = GetBfrRemByte(&oBfrPair);
+    uart->DR = c;
+  }
 }
 
 /*----------- GetByte() -----------
@@ -96,6 +93,9 @@ Get a byte from iBfrPair if possible.
 A response of -1 indicates an empty buffer.
 */
 CPU_INT16S GetByte(){
+  if(BfrPairSwappable(&iBfrPair))
+    BfrPairSwap(&iBfrPair);
+  
   return GetBfrRemByte(&iBfrPair);
 }
 
@@ -104,5 +104,17 @@ Send a byte to the output put buffer.
 A negative return value indicates a full buffer
 */
 CPU_INT16S PutByte(CPU_INT16S txChar){
-  return PutBfrAddByte(&oBfrPair, txChar);;
+  CPU_INT16S retVal = -1;
+  
+  if(BfrPairSwappable(&oBfrPair))
+     BfrPairSwap(&oBfrPair);
+
+  if(!PutBfrClosed(&oBfrPair)){
+    PutBfrAddByte(&oBfrPair,txChar);
+    retVal = txChar;
+  }
+  
+  return retVal;
+  
+//  return PutBfrAddByte(&oBfrPair, txChar);
 }

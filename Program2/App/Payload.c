@@ -123,7 +123,6 @@ void PayloadTask(){
       payload = (Payload *) GetBfrAddr(&payloadBfrPair);
       if(payload->payloadLen <= 0){  // Check for error cases
         DispErr((Error_t) payload->payloadLen, reply);
-        pState = R;
       }else{
         if(payload->dstAddr == MyAddress){ // If message is to me, parse a response
           switch(payload->msgType){
@@ -155,22 +154,21 @@ void PayloadTask(){
               DispErr((Error_t) payload->msgType, reply);
               break;
           }
-          pState = R;
         }else{ // Display an info message if another host is the target
           DispAssert(ASS_ADDRESS, reply);
           if(BfrPairSwappable(&replyBfrPair))
             BfrPairSwap(&replyBfrPair);
-          pState = R;
         }
       }
+      pState = R;
       OpenGetBfr(&payloadBfrPair);
       if(BfrPairSwappable(&payloadBfrPair))
             BfrPairSwap(&payloadBfrPair);
     }
   }else{
-      replyDone = SendReply(reply);
-      if(replyDone)
-        pState = P;
+    replyDone = SendReply(reply);
+    if(replyDone)
+      pState = P;
     }
 }
 
