@@ -18,7 +18,7 @@ CHANGES
 /*----- t y p e d e f s   u s e d   i n   B u f f e r -----*/
 typedef struct
 {
-  CPU_BOOLEAN closed;
+  volatile CPU_BOOLEAN closed;
   CPU_INT16U size;
   CPU_INT16U putIndex;
   CPU_INT16U getIndex;
