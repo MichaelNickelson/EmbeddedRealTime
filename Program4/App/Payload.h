@@ -7,7 +7,11 @@
 CPU_INT16U Reverse2Bytes(CPU_INT16U b);
 CPU_INT32U Reverse4Bytes(CPU_INT32U b);
 
-void PayloadInit(BfrPair **payloadBfrPair, BfrPair **replyBfrPair);
-void PayloadTask(void);
+extern BfrPair payloadBfrPair;
+
+void PayloadInit(BfrPair **payloadBfrPair);
+void PayloadTask(void *data);
+
+void CreatePayloadTask(void);
 
 #endif

@@ -13,6 +13,7 @@ CHANGES
 #include "BfrPair.h"
 #include "includes.h"
 #include "Buffer.h"
+#include "assert.h"
 
 /*----- Constant definitions ----- */
 #define RXNE_MASK 0x0020
@@ -22,6 +23,9 @@ CHANGES
 #define RXNEIE_MASK 0x0020
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
+#define NUM_BFRS 2
+
+#define SUSPEND_TIMEOUT 100
 
 /*----- Function prototypes -----*/
 void SerialISR(void);
@@ -40,18 +44,31 @@ BfrPair oBfrPair;
 CPU_INT08U oBfr0Space[BfrSize];
 CPU_INT08U oBfr1Space[BfrSize];
 
+/*----- Initialize openObfrs and closedIBfrs semaphores -----*/
+OS_SEM openObfrs;
+OS_SEM closedIBfrs;
+
 /*----------- SerialISR() -----------
 Interrupt routine tripped by USART2
 */
 void SerialISR(void){
+  CPU_SR_ALLOC();
+  OS_CRITICAL_ENTER();
+  OSIntEnter();
+  OS_CRITICAL_EXIT();
+  
   ServiceRx();
   ServiceTx();
+  
+  OSIntExit();
 }
 
 /*----------- InitSerIO() -----------
 Configure HW and initialize buffers
 */
 void InitSerIO(){
+  OS_ERR osErr;
+  
   USART_TypeDef *uart = USART2;
   
   // Set UART baud rate to 9600bps
@@ -78,6 +95,12 @@ void InitSerIO(){
   
   BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, BfrSize);
   BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, BfrSize);
+  
+  OSSemCreate(&openObfrs, "Open oBfrs", NUM_BFRS, &osErr);
+  assert(osErr == OS_ERR_NONE);
+  
+  OSSemCreate(&closedIBfrs, "Closed iBfrs", 0, &osErr);
+  assert(osErr == OS_ERR_NONE);
 }
 
 /*----------- ServiceRx() -----------
@@ -87,10 +110,15 @@ Swap buffers if needed.
 */
 void ServiceRx(){
   USART_TypeDef *uart = USART2;
+  OS_ERR osErr;
   
   if((uart->SR) & RXNE_MASK){
     if(!PutBfrClosed(&iBfrPair)){
       PutBfrAddByte(&iBfrPair, uart->DR);
+      if(PutBfrClosed(&iBfrPair)){
+        OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
+        assert(osErr==OS_ERR_NONE);
+      }
     }else{
       uart->CR1 = uart->CR1 ^ RXNEIE_MASK;
     }
@@ -104,11 +132,17 @@ Swap buffers if needed.
 void ServiceTx(){
   USART_TypeDef *uart = USART2;
   CPU_INT16S c;
+  OS_ERR osErr;
   
   if((uart->SR) & TXE_MASK){
     if(GetBfrClosed(&oBfrPair)){
       c = GetBfrRemByte(&oBfrPair);
       uart->DR = c;
+      
+      if(!GetBfrClosed(&oBfrPair)){
+        OSSemPost(&openObfrs, OS_OPT_POST_1, &osErr);
+        assert(osErr==OS_ERR_NONE);
+      }
     }else{
       uart->CR1 = uart->CR1 ^ TXEIE_MASK;
     }
@@ -122,10 +156,25 @@ A response of -1 indicates an empty buffer.
 CPU_INT16S GetByte(){
   CPU_INT16S retVal = -1;
   USART_TypeDef *uart = USART2;
+  OS_ERR osErr;
   
-  if(BfrPairSwappable(&iBfrPair))
-    BfrPairSwap(&iBfrPair);
+//  if(BfrPairSwappable(&iBfrPair))
+//    BfrPairSwap(&iBfrPair);
+//  
+//  if(GetBfrClosed(&iBfrPair)){
+//    uart->CR1 = uart->CR1 | RXNEIE_MASK;
+//    retVal = GetBfrRemByte(&iBfrPair);
+//  }
   
+  if(!GetBfrClosed(&iBfrPair)){
+//    OSSemPend(&closedIBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+    OSSemPend(&closedIBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+    assert(osErr == OS_ERR_NONE);
+    
+    if(BfrPairSwappable(&iBfrPair))
+      BfrPairSwap(&iBfrPair);
+  }
+     
   if(GetBfrClosed(&iBfrPair)){
     uart->CR1 = uart->CR1 | RXNEIE_MASK;
     retVal = GetBfrRemByte(&iBfrPair);
@@ -141,15 +190,19 @@ A negative return value indicates a full buffer
 CPU_INT16S PutByte(CPU_INT16S txChar){
   CPU_INT16S retVal = -1;
   USART_TypeDef *uart = USART2;
-  
-  if(BfrPairSwappable(&oBfrPair))
-     BfrPairSwap(&oBfrPair);
+  OS_ERR osErr;
 
-  if(!PutBfrClosed(&oBfrPair)){
-    PutBfrAddByte(&oBfrPair,txChar);
-    retVal = txChar;
-    uart->CR1 = uart->CR1 | TXEIE_MASK;
+  if(PutBfrClosed(&oBfrPair)){
+    OSSemPend(&openObfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+    assert(osErr == OS_ERR_NONE);
+    
+    if(BfrPairSwappable(&oBfrPair))
+      BfrPairSwap(&oBfrPair);
   }
+  
+  PutBfrAddByte(&oBfrPair,txChar);
+  retVal = txChar;
+  uart->CR1 = uart->CR1 | TXEIE_MASK;
   
   return retVal;
   

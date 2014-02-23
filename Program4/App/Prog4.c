@@ -26,68 +26,99 @@ CHANGES
 
 // Define RS232 baud rate.
 #define Init_STK_SIZE 128 // Init stack size
-#define InitPRIO 2 // Init task priority
+#define Init_PRIO 2 // Init task priority
 #define BaudRate 9600 // Baud rate setting
+
+/*----- G l o b a l   V a r i a b l e s -----*/
+static OS_TCB initTCB; // Init task TCB
+static CPU_STK initStk[Init_STK_SIZE]; // Space for init task stack
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 
 void AppMain(void);
+static void Init (void *p_arg);
 
 /*--------------- m a i n ( ) -----------------*/
 
-CPU_INT32S main()
+CPU_VOID  main (CPU_VOID)
 {
-//  Initialize the STM32F107 eval. board.
-    BSP_IntDisAll();            /* Disable all interrupts. */
+  // OS Error Code
+  OS_ERR  err;                          
 
-    BSP_Init();                 /* Initialize BSP functions */
+  // Disable all interrupts.
+  BSP_IntDisAll();                      
 
-    BSP_Ser_Init(BaudRate);     /* Initialize the RS232 interface. */
+  // Init uC/OS-III.
+  OSInit(&err);                         
+  assert(err == OS_ERR_NONE);
+  
+  // Create the init task.
+  OSTaskCreate(&initTCB,            // Task Control Block                
+               "Init Task",         // Task name
+               Init,                // Task entry point
+               NULL,                // Address of optional task data block
+               Init_PRIO,           // Task priority
+               &initStk[0],         // Base address of task stack space
+               Init_STK_SIZE / 10,  // Stack water mark limit
+               Init_STK_SIZE,       // Task stack size
+               0,                   // This task has no task queue
+               0,                   // Number of clock ticks (defaults to 10)
+               0,                   // Pointer to TCB extension
+               (OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),  // Task options
+               &err);               // Address to return O/S error code
 
-//  Run the application.    
-    AppMain();
-    
-    return 0;
+  /* Verify successful task creation. */
+  assert(err == OS_ERR_NONE);
+
+  // Start multitasking.
+  OSStart(&err);                        
+  assert(err == OS_ERR_NONE);
 }
 
-/*--------------- A p p M a i n ( ) ---------------
 
+/*--------------- I n i t ( ) ---------------*/
+
+/*
 PURPOSE
-This is the application main program.
+Perform O/S and application initialization.
 
+INPUT PARAMETERS
+data		-- pointer to task data (not used)
+
+GLOBALS
 */
 
-void AppMain(void)
+static  void  Init (void *p_arg)
 {
-  BfrPair *payloadBfrPair;  // Address of the Payload Buffer Pair
-  BfrPair *replyBfrPair;    // Address of the Reply Buffer Pair
+    CPU_INT32U  cpu_clk_freq;                                     /* CPU Clock frequency */
+    CPU_INT32U  cnts;                                             /* CPU clock interval */
+    OS_ERR      err;                                              /* OS Error code */
+    
+    BSP_Init();                                                   /* Initialize BSP functions  */
+    CPU_Init();                                                   /* Initialize the uC/CPU services */
 
-  // Create and Initialize iBfrPair and oBfrPair.
-  InitSerIO();
-  
-  // Enable interrupts globally.
-  IntEn();
+    cpu_clk_freq = BSP_CPU_ClkFreq();                             /* Determine SysTick reference freq. */                                                                        
+    cnts         = cpu_clk_freq / (CPU_INT32U)OSCfg_TickRate_Hz;  /* Determine nbr SysTick increments */
+    OS_CPU_SysTickInit(cnts);                                     /* Init uC/OS periodic time src (SysTick). */
 
-  // Create and initialize the Payload Buffer Pair and the Reply Buffer
-  // Pair and get their addresses.
-  PayloadInit(&payloadBfrPair, &replyBfrPair);
-  
-  // Multitasking Executive Loop: Tasks are executed round robin.
-  for (;;)
-    {
-    // Service the RS232 receiver.
-//    ServiceRx();
+#if OS_CFG_STAT_TASK_EN > 0u
+    OSStatTaskCPUUsageInit(&err);                                 /* Compute CPU capacity with no task running */
+#endif
 
-    // Execute the ParsePkt task.
-    ParsePkt(payloadBfrPair);
- 
-    // Execute the Payload task.
-    PayloadTask();
+    CPU_IntDisMeasMaxCurReset();
 
-    // Execute the Reply Task.
-    Reply(replyBfrPair);
+    // Initialize USART2.
+    BSP_Ser_Init(BaudRate);
 
-    // Service the RS232 transmitter.
-//    ServiceTx();
-    }
+    // Initialize the serial I/O driver. 
+    InitSerIO();    
+    
+    // Create the Producer and Consumer tasks.
+    CreateParsePktTask();
+    CreatePayloadTask();
+    
+    // Delete the Init task.
+    OSTaskDel(&initTCB, &err);
+    assert(err == OS_ERR_NONE);
 }
+

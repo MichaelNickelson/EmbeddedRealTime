@@ -15,6 +15,9 @@ CHANGES
 #include "Buffer.h"
 #include "Error.h"
 #include "string.h"
+#include "assert.h"
+#include "PktParser.h"
+#include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 #define LowNibble 0xF
@@ -31,6 +34,8 @@ CHANGES
 #define MsgLength 160
 #define PayloadBfrSize 14
 #define ReplyBfrSize 80
+#define PayloadPrio 4
+#define PAYLOAD_STK_SIZE 128
 
 /*-----  Assign easy to read names to message ID -----*/
 #define MSG_TEMP 1
@@ -84,92 +89,148 @@ void ParsePrecip(Payload *payload, CPU_CHAR reply[]);
 void ParseID(Payload *payload, CPU_CHAR reply[]);
 CPU_BOOLEAN SendReply(CPU_CHAR reply[]);
 
-
 /*----- Declare i/o buffer pairs -----*/
-static BfrPair payloadBfrPair;
+//static BfrPair payloadBfrPair;
+//static CPU_INT08U pBfr0Space[PayloadBfrSize];
+//static CPU_INT08U pBfr1Space[PayloadBfrSize];
+//
+//static BfrPair replyBfrPair;
+//static CPU_INT08U rBfr0Space[ReplyBfrSize];
+//static CPU_INT08U rBfr1Space[ReplyBfrSize];
+
+BfrPair payloadBfrPair;
 static CPU_INT08U pBfr0Space[PayloadBfrSize];
 static CPU_INT08U pBfr1Space[PayloadBfrSize];
 
-static BfrPair replyBfrPair;
-static CPU_INT08U rBfr0Space[ReplyBfrSize];
-static CPU_INT08U rBfr1Space[ReplyBfrSize];
+//static BfrPair replyBfrPair;
+//static CPU_INT08U rBfr0Space[ReplyBfrSize];
+//static CPU_INT08U rBfr1Space[ReplyBfrSize];
 
+static OS_TCB payloadTCB;
+static CPU_STK payloadStk[PAYLOAD_STK_SIZE];
+
+void CreatePayloadTask(void){
+  OS_ERR osErr;
+  
+  BfrPair *payloadBfrPair;  // Address of the Payload Buffer Pair
+  
+//  BfrPair *payloadBfrPair;
+  PayloadInit(&payloadBfrPair);
+  
+  OSTaskCreate(&payloadTCB,
+               "Payload task",
+               PayloadTask,
+               NULL,
+               PayloadPrio,
+               &payloadStk[0],
+               PAYLOAD_STK_SIZE / 10,
+               PAYLOAD_STK_SIZE,
+               0,
+               0,
+               (void *)0,
+               0,
+               &osErr);
+  
+  assert(osErr == OS_ERR_NONE);
+  
+//  OSSemCreate(&openPayloadBfrs, "Open payload buffers", NUM_BFRS, &osErr);
+//  assert(osErr == OS_ERR_NONE);
+//  
+//  OSSemCreate(&closedPayloadBfrs, "Closed payload buffers", 0, &osErr);
+//  assert(osErr == OS_ERR_NONE);
+//  
+//  BfrPairInit(&payloadBfrPair,
+//              payload0Space,
+//              payload1Space,
+//              PayloadBfrSize);
+}
 
 /*--------------- P a y l o a d I n i t ---------------
 Initialize payload and reply buffer pairs.
 */
-void PayloadInit(BfrPair **pBfrPair, BfrPair **rBfrPair){
+void PayloadInit(BfrPair **pBfrPair){
   /* Modifying payloadBfrPair and replyBfrPair directly seems to cause problems
      so placeholder variables pBfrPair and rBfrPair are created then mapped
      onto payloadBfrPair and replyBfrPair */
   BfrPairInit(&payloadBfrPair, pBfr0Space, pBfr1Space, PayloadBfrSize);
-  BfrPairInit(&replyBfrPair, rBfr0Space, rBfr1Space, ReplyBfrSize);
+//  BfrPairInit(&replyBfrPair, rBfr0Space, rBfr1Space, ReplyBfrSize);
   *pBfrPair = &payloadBfrPair;
-  *rBfrPair = &replyBfrPair;
+//  *rBfrPair = &replyBfrPair;
+
 }
 
 /*--------------- P a y l o a d T a s k ---------------
 Get a payload from payloadBfrPair and generate a reply based on message type 
 then forward it to the reply buffer
 */
-void PayloadTask(){
+void PayloadTask(void *data){
   CPU_BOOLEAN replyDone = FALSE;
   static PayloadState pState = P;
   static CPU_CHAR reply[ReplyBfrSize];
   Payload *payload;
+  OS_ERR osErr;
   
-  if(pState == P){ // If no reply is being sent check payload data ready conditions
-    if(GetBfrClosed(&payloadBfrPair)&!PutBfrClosed(&replyBfrPair)){
-      payload = (Payload *) GetBfrAddr(&payloadBfrPair);
-      if(payload->payloadLen <= 0){  // Check for error cases
-        DispErr((Error_t) payload->payloadLen, reply);
-      }else{
-        if(payload->dstAddr == MyAddress){ // If message is to me, parse a response
-          switch(payload->msgType){
-            case(MSG_TEMP):
-              ParseTemp(payload, reply);
-              break;
-            case(MSG_PRESSURE):
-              ParsePressure(payload, reply);
-              break;
-            case(MSG_HUMIDITY):
-              ParseHumidity(payload, reply);
-              break;
-            case(MSG_WIND):
-              ParseWind(payload, reply);
-              break;
-            case(MSG_RADIATION):
-              ParseRadiation(payload, reply);
-              break;
-            case(MSG_TIMESTAMP):
-              ParseTimeStamp(payload, reply);
-              break;
-            case(MSG_PRECIPITATION):
-              ParsePrecip(payload, reply);
-              break;
-            case(MSG_SENSORID):
-              ParseID(payload, reply);
-              break;
-            default:  // Handle unknown message types
-              DispErr((Error_t) payload->msgType, reply);
-              break;
+  for(;;){
+    if(pState == P){ // If no reply is being sent check payload data ready conditions
+//      if(GetBfrClosed(&payloadBfrPair)&!PutBfrClosed(&replyBfrPair)){
+        OSSemPend(&closedPayloadBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+        assert(osErr==OS_ERR_NONE);
+        payload = (Payload *) GetBfrAddr(&payloadBfrPair);
+//        payload = (Payload *) GetBfrAddr(payloadBfrPair);
+        if(payload->payloadLen <= 0){  // Check for error cases
+          DispErr((Error_t) payload->payloadLen, reply);
+        }else{
+          if(payload->dstAddr == MyAddress){ // If message is to me, parse a response
+            switch(payload->msgType){
+              case(MSG_TEMP):
+                ParseTemp(payload, reply);
+                break;
+              case(MSG_PRESSURE):
+                ParsePressure(payload, reply);
+                break;
+              case(MSG_HUMIDITY):
+                ParseHumidity(payload, reply);
+                break;
+              case(MSG_WIND):
+                ParseWind(payload, reply);
+                break;
+              case(MSG_RADIATION):
+                ParseRadiation(payload, reply);
+                break;
+              case(MSG_TIMESTAMP):
+                ParseTimeStamp(payload, reply);
+                break;
+              case(MSG_PRECIPITATION):
+                ParsePrecip(payload, reply);
+                break;
+              case(MSG_SENSORID):
+                ParseID(payload, reply);
+                break;
+              default:  // Handle unknown message types
+                DispErr((Error_t) payload->msgType, reply);
+                break;
+            }
+          }else{ // Display an info message if another host is the target
+            DispAssert(ASS_ADDRESS, reply);
+//            if(BfrPairSwappable(&replyBfrPair))
+//              BfrPairSwap(&replyBfrPair);
           }
-        }else{ // Display an info message if another host is the target
-          DispAssert(ASS_ADDRESS, reply);
-          if(BfrPairSwappable(&replyBfrPair))
-            BfrPairSwap(&replyBfrPair);
         }
-      }
-      pState = R;
-      OpenGetBfr(&payloadBfrPair);
-      if(BfrPairSwappable(&payloadBfrPair))
-            BfrPairSwap(&payloadBfrPair);
+        pState = R;
+        OpenGetBfr(&payloadBfrPair);
+//        OpenGetBfr(payloadBfrPair);
+        OSSemPost(&openPayloadBfrs, OS_OPT_POST_1, &osErr);
+        assert(osErr==OS_ERR_NONE);
+        if(BfrPairSwappable(&payloadBfrPair))
+              BfrPairSwap(&payloadBfrPair);
+//        if(BfrPairSwappable(payloadBfrPair))
+//              BfrPairSwap(payloadBfrPair);
+    }else{
+      replyDone = SendReply(reply);
+      if(replyDone)
+        pState = P;
     }
-  }else{
-    replyDone = SendReply(reply);
-    if(replyDone)
-      pState = P;
-    }
+  }
 }
 
 /* Parse and print each message in its own function */
@@ -289,12 +350,13 @@ CPU_BOOLEAN SendReply(CPU_CHAR reply[]){
   CPU_BOOLEAN retVal = FALSE;
 
   if(j<strlen(reply)){
-    PutBfrAddByte(&replyBfrPair, reply[j]);
+    PutByte(reply[j]);
+//    PutBfrAddByte(&replyBfrPair, reply[j]);
     j++;
   }else{
-    ClosePutBfr(&replyBfrPair);
-    if(BfrPairSwappable(&replyBfrPair))
-      BfrPairSwap(&replyBfrPair);
+//    ClosePutBfr(&replyBfrPair);
+//    if(BfrPairSwappable(&replyBfrPair))
+//      BfrPairSwap(&replyBfrPair);
     j = 0;
     retVal = TRUE;
   }

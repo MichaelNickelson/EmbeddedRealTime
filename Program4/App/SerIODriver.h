@@ -31,6 +31,9 @@ extern BfrPair oBfrPair;
 extern CPU_INT08U oBfr0Space[BfrSize];
 extern CPU_INT08U oBfr1Space[BfrSize];
 
+extern OS_SEM openObfrs;
+extern OS_SEM closedIBfrs;
+
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void SerialISR(void);
