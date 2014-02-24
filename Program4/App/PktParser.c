@@ -9,6 +9,7 @@ receives a struct with the current state information.
 
 CHANGES
 02-19-2014 mn -  Initial Submission
+03-12-2014 mn -  Updated to use uCOS-III and semaphores
 */
 
 /* Include dependencies */
@@ -39,7 +40,6 @@ typedef struct{
   CPU_INT16S c;  // Current byte
   CPU_INT08U checkSum;
   CPU_INT08S payloadLen;
-//  BfrPair* payloadBfrPair;
   CPU_INT08U preamble[HeaderLength-1];
 } StateVariables_t;
 
@@ -57,16 +57,27 @@ OS_SEM closedPayloadBfrs;
 static OS_TCB parsePktTCB;
 static CPU_STK parsePktStk[PARSER_STK_SIZE];
 
-/*----- f u n c t i o n    p r o t o t y p e s -----*/
+/*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void DoStateP(StateVariables_t *myState);
 void DoStateL(StateVariables_t *myState);
 void DoStateR(StateVariables_t *myState);
 void DoStateER(StateVariables_t *myState);
 void ErrorTransition(StateVariables_t *myState);
+void ParsePkt(void *payloadBfrPair);
 
+/*--------------- C r e a t e P a r s e P k t T a s k ---------------
+Start the packet parsing task and create the relevant semaphores
+*/
 void CreateParsePktTask(void){
   OS_ERR osErr;
   
+  // Create semaphores and verify success
+  OSSemCreate(&openPayloadBfrs, "Open payload buffers", NUM_BFRS, &osErr);
+  assert(osErr == OS_ERR_NONE);
+  OSSemCreate(&closedPayloadBfrs, "Closed payload buffers", 0, &osErr);
+  assert(osErr == OS_ERR_NONE);
+  
+  // Start ParsePkt task and verify success
   OSTaskCreate(&parsePktTCB,
                "Packet parsing task",
                ParsePkt,
@@ -80,13 +91,6 @@ void CreateParsePktTask(void){
                (void *)0,
                0,
                &osErr);
-  
-  assert(osErr == OS_ERR_NONE);
-  
-  OSSemCreate(&openPayloadBfrs, "Open payload buffers", NUM_BFRS, &osErr);
-  assert(osErr == OS_ERR_NONE);
-  
-  OSSemCreate(&closedPayloadBfrs, "Closed payload buffers", 0, &osErr);
   assert(osErr == OS_ERR_NONE);
 }
 
@@ -104,31 +108,31 @@ void ParsePkt(void *payloadBfrPair){
   OS_ERR osErr;
 
   for(;;){
+    // GetByte will pend if there is no data ready.
     myState.c = GetByte();
-    /* If data ready conditions aren't met, GetByte() will return -1
-    If a byte is available run through the state machine.*/
-    if(myState.c!=-1){
-      myState.checkSum ^= myState.c; // Maintain running checksum as bytes are received
     
-      switch (myState.parseState){
-        case P:  // Look for a preamble
-          DoStateP(&myState);
-          break;
-        case L: // Read in packet length
-          // Since this is the first time the payload buffer is written to
-          // and this state is only entered once, it makes sense to pend here.
-          OSSemPend(&openPayloadBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-          assert(osErr==OS_ERR_NONE);
-          DoStateL(&myState);
-          break;
-        case R:   // Read in data
-          DoStateR(&myState);
-          break;
-        case ER:  // If an error occurs, or a an unknown state arises,
-        default:  // look for a  full preamble.
-          DoStateER(&myState);
-          break;
-      }
+    // Maintain running checksum as bytes are received
+    myState.checkSum ^= myState.c;
+  
+    switch (myState.parseState){
+      case P:  // Look for a preamble
+        DoStateP(&myState);
+        break;
+      case L: // Read in packet length
+        // Since this is the first time the payload buffer is written to
+        // and this state is only entered once, it makes sense to wait here
+        // for a payload buffer to open.
+        OSSemPend(&openPayloadBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+        assert(osErr==OS_ERR_NONE);
+        DoStateL(&myState);
+        break;
+      case R:   // Read in data
+        DoStateR(&myState);
+        break;
+      case ER:  // If an error occurs, or a an unknown state arises,
+      default:  // look for a  full preamble.
+        DoStateER(&myState);
+        break;
     }
   }
 }
@@ -191,7 +195,7 @@ void DoStateR(StateVariables_t *myState){
       ClosePutBfr(&payloadBfrPair);
       if(BfrPairSwappable(&payloadBfrPair))
         BfrPairSwap(&payloadBfrPair);
-      
+      // Inform the OS that a payload buffer was closed
       OSSemPost(&closedPayloadBfrs, OS_OPT_POST_1, &osErr);
       assert(osErr==OS_ERR_NONE);
     }
@@ -205,7 +209,7 @@ void DoStateER(StateVariables_t *myState){
   static CPU_INT08S pb = 0;
   if (myState->c == myState->preamble[pb]){
     pb++;
-  }else{ // If the wrong byte is found, stay in error state
+  }else{ // If the wrong preamble byte is found, stay in error state
     pb = 0;
     myState->checkSum = 0;
   }
@@ -225,7 +229,7 @@ void ErrorTransition(StateVariables_t *myState){
   ClosePutBfr(&payloadBfrPair);
   if(BfrPairSwappable(&payloadBfrPair))
     BfrPairSwap(&payloadBfrPair);
-  
+  // Inform the OS that a payload buffer was closed
   OSSemPost(&closedPayloadBfrs, OS_OPT_POST_1, &osErr);
   assert(osErr==OS_ERR_NONE);
   
