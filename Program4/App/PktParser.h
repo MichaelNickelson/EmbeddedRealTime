@@ -2,8 +2,10 @@
 
 by: Michael Nickelson
 
-PURPOSE
-This module sets up serial IO and appropriate buffers
+PURPOSE - Header file
+Handles incoming packets for payload buffer to parse.
+Each state of the parsing state machine is implemented as a function that
+receives a struct with the current state information.
 
 CHANGES
 02-19-2014 mn -  Initial submission

@@ -6,12 +6,12 @@ PURPOSE
 Parse payload and handle response
 
 CHANGES
-02/19/2014 mn - Initial submission
+02-19-2014 mn -  Initial submission
+03-12-2014 mn -  Updated to use uCOS-III and semaphores
 */
 
 #include "Payload.h"
 #include "includes.h"
-#include "BfrPair.h"
 #include "Buffer.h"
 #include "Error.h"
 #include "string.h"
@@ -79,7 +79,9 @@ typedef struct
 
 typedef enum { P, R } PayloadState;
 
-/*----- f u n c t i o n    p r o t o t y p e s -----*/
+/*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
+void PayloadInit(BfrPair **payloadBfrPair);
+void PayloadTask(void *data);
 void ParseTemp(Payload *payload, CPU_CHAR reply[]);
 void ParsePressure(Payload *payload, CPU_CHAR reply[]);
 void ParseHumidity(Payload *payload, CPU_CHAR reply[]);
@@ -89,12 +91,16 @@ void ParseTimeStamp(Payload *payload, CPU_CHAR reply[]);
 void ParsePrecip(Payload *payload, CPU_CHAR reply[]);
 void ParseID(Payload *payload, CPU_CHAR reply[]);
 CPU_BOOLEAN SendReply(CPU_CHAR reply[]);
+CPU_INT16U Reverse2Bytes(CPU_INT16U b);
+CPU_INT32U Reverse4Bytes(CPU_INT32U b);
 
-/*----- Declare i/o buffer pairs -----*/
+/*----- G l o b a l   V a r i a b l e s -----*/
+// Payload buffer pair
 BfrPair payloadBfrPair;
 static CPU_INT08U pBfr0Space[PayloadBfrSize];
 static CPU_INT08U pBfr1Space[PayloadBfrSize];
 
+// Task TCB and stack
 static OS_TCB payloadTCB;
 static CPU_STK payloadStk[PAYLOAD_STK_SIZE];
 
