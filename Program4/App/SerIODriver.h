@@ -7,7 +7,8 @@ Header for SerIODriver.c
 This module sets up serial IO and appropriate buffers
 
 CHANGES
-02/19/2014 mn - Initial submission
+02-19-2014 mn -  Initial submission
+03-12-2014 mn -  Updated to use uCOS-III and semaphores
 */
 
 #ifndef SERIODRIVER_H
@@ -21,25 +22,9 @@ CHANGES
 #define BfrSize 4
 #endif
 
-/*----- G l o b a l   D e c l a r a t i o n s -----*/
-/* iBfrPair and oBfrPair are needed by other modules */
-extern BfrPair iBfrPair;
-extern CPU_INT08U iBfr0Space[BfrSize];
-extern CPU_INT08U iBfr1Space[BfrSize];
-
-extern BfrPair oBfrPair;
-extern CPU_INT08U oBfr0Space[BfrSize];
-extern CPU_INT08U oBfr1Space[BfrSize];
-
-extern OS_SEM openObfrs;
-extern OS_SEM closedIBfrs;
-
-
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void SerialISR(void);
 void InitSerIO();
-void ServiceRx();
-void ServiceTx();
 CPU_INT16S GetByte(void);
 CPU_INT16S PutByte(CPU_INT16S txChar);
 

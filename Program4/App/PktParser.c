@@ -14,12 +14,12 @@ CHANGES
 
 /* Include dependencies */
 #include "includes.h"
-#include "SerIODriver.h"
 #include "PktParser.h"
-#include "Error.h"
-#include "BfrPair.h"
 #include "assert.h"
+#include "BfrPair.h"
+#include "Error.h"
 #include "Payload.h"
+#include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 #define HeaderLength 4 

@@ -10,14 +10,13 @@ CHANGES
 03-12-2014 mn -  Updated to use uCOS-III and semaphores
 */
 
-#include "Payload.h"
 #include "includes.h"
-#include "Buffer.h"
-#include "Error.h"
-#include "string.h"
+#include "Payload.h"
 #include "assert.h"
+#include "Error.h"
 #include "PktParser.h"
 #include "SerIODriver.h"
+#include "string.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 #define LowNibble 0xF

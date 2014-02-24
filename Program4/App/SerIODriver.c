@@ -6,14 +6,13 @@ PURPOSE
 This module sets up serial IO and appropriate buffers
 
 CHANGES
-02/19/2014 mn - Initial submission
+02-19-2014 mn -  Initial submission
+03-12-2014 mn -  Updated to use uCOS-III and semaphores
 */
 
 #include "SerIODriver.h"
-#include "BfrPair.h"
-#include "includes.h"
-#include "Buffer.h"
 #include "assert.h"
+#include "Buffer.h"
 
 /*----- Constant definitions ----- */
 #define RXNE_MASK 0x0020
@@ -26,27 +25,23 @@ CHANGES
 #define NUM_BFRS 2
 #define SUSPEND_TIMEOUT 100
 
-/*----- Function prototypes -----*/
-void SerialISR(void);
-void InitSerIO();
+/*----- Local Function prototypes -----*/
 void ServiceRx();
 void ServiceTx();
-CPU_INT16S GetByte();
-CPU_INT16S PutByte(CPU_INT16S txChar);
 
 /*----- Global Variables -----*/
 // Declare input and output buffer pairs
-BfrPair iBfrPair;
-CPU_INT08U iBfr0Space[BfrSize];
-CPU_INT08U iBfr1Space[BfrSize];
+static BfrPair iBfrPair;
+static CPU_INT08U iBfr0Space[BfrSize];
+static CPU_INT08U iBfr1Space[BfrSize];
 
-BfrPair oBfrPair;
-CPU_INT08U oBfr0Space[BfrSize];
-CPU_INT08U oBfr1Space[BfrSize];
+static BfrPair oBfrPair;
+static CPU_INT08U oBfr0Space[BfrSize];
+static CPU_INT08U oBfr1Space[BfrSize];
 
 // Declare openObfrs and closedIBfrs semaphores
-OS_SEM openObfrs;
-OS_SEM closedIBfrs;
+static OS_SEM openObfrs;
+static OS_SEM closedIBfrs;
 
 /*----------- SerialISR() -----------
 Interrupt routine tripped by USART2
@@ -105,9 +100,9 @@ void InitSerIO(){
 }
 
 /*----------- ServiceRx() -----------
-If a new byte is available in the Status Register grab it and put it into the
-iBfrPair PutBfr.
-Swap buffers if needed.
+If a new byte is available in the Status Register and the iBfrPair put 
+buffer is open, grab it and put it into the iBfrPair PutBfr.
+Swap buffers as needed.
 */
 void ServiceRx(){
   USART_TypeDef *uart = USART2;
@@ -116,6 +111,7 @@ void ServiceRx(){
   if((uart->SR) & RXNE_MASK){
     if(!PutBfrClosed(&iBfrPair)){
       PutBfrAddByte(&iBfrPair, uart->DR);
+      // If the put buffer closes, inform the OS.
       if(PutBfrClosed(&iBfrPair)){
         OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
         assert(osErr==OS_ERR_NONE);
@@ -128,7 +124,7 @@ void ServiceRx(){
 
 /*----------- ServiceTx() -----------
 If the Get buffer is closed, start dumping it out to the UART.
-Swap buffers if needed.
+Swap buffers as needed.
 */
 void ServiceTx(){
   USART_TypeDef *uart = USART2;
@@ -140,6 +136,7 @@ void ServiceTx(){
       c = GetBfrRemByte(&oBfrPair);
       uart->DR = c;
       
+      // If the buffer opens, inform the OS
       if(!GetBfrClosed(&oBfrPair)){
         OSSemPost(&openObfrs, OS_OPT_POST_1, &osErr);
         assert(osErr==OS_ERR_NONE);

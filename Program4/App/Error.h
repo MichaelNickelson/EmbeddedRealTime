@@ -7,7 +7,8 @@ Generate error and assert messages
 Header file
 
 CHANGES
-02/19/2014 mn - Initial submission
+02-19-14 mn -  Initial submission
+03-12-14 mn -  Remove preamble error prototype as the function is no longer used
 */
 
 #ifndef Errors_H
@@ -26,6 +27,5 @@ typedef enum {ASS_ADDRESS} Assert_t;
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void DispErr(Error_t e, CPU_CHAR reply[]);
 void DispAssert(Assert_t a, CPU_CHAR reply[]);
-void PreambleError(CPU_INT08U pe);
 
 #endif

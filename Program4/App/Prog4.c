@@ -13,14 +13,11 @@ CHANGES
 */
 
 #include "includes.h"
-#include "BfrPair.h"
-#include "Reply.h"
 #include "Payload.h"
-#include "Error.h"
+#include "assert.h"
+#include "Intrpt.h"
 #include "PktParser.h"
 #include "SerIODriver.h"
-#include "Intrpt.h"
-#include "assert.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
