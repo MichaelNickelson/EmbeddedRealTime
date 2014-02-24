@@ -36,6 +36,7 @@ CHANGES
 #define ReplyBfrSize 80
 #define PayloadPrio 4
 #define PAYLOAD_STK_SIZE 128
+#define SUSPEND_TIMEOUT 100
 
 /*-----  Assign easy to read names to message ID -----*/
 #define MSG_TEMP 1
@@ -90,33 +91,26 @@ void ParseID(Payload *payload, CPU_CHAR reply[]);
 CPU_BOOLEAN SendReply(CPU_CHAR reply[]);
 
 /*----- Declare i/o buffer pairs -----*/
-//static BfrPair payloadBfrPair;
-//static CPU_INT08U pBfr0Space[PayloadBfrSize];
-//static CPU_INT08U pBfr1Space[PayloadBfrSize];
-//
-//static BfrPair replyBfrPair;
-//static CPU_INT08U rBfr0Space[ReplyBfrSize];
-//static CPU_INT08U rBfr1Space[ReplyBfrSize];
-
 BfrPair payloadBfrPair;
 static CPU_INT08U pBfr0Space[PayloadBfrSize];
 static CPU_INT08U pBfr1Space[PayloadBfrSize];
 
-//static BfrPair replyBfrPair;
-//static CPU_INT08U rBfr0Space[ReplyBfrSize];
-//static CPU_INT08U rBfr1Space[ReplyBfrSize];
-
 static OS_TCB payloadTCB;
 static CPU_STK payloadStk[PAYLOAD_STK_SIZE];
 
+/*--------------- C r e a t e P a y l o a d T a s k ---------------
+Create/Initialize payload buffer pair and start the payload task
+*/
 void CreatePayloadTask(void){
   OS_ERR osErr;
   
-  BfrPair *payloadBfrPair;  // Address of the Payload Buffer Pair
+  // Create the Payload Buffer Pair
+  BfrPair *payloadBfrPair;
   
-//  BfrPair *payloadBfrPair;
+  // Initialize the Payload Buffer pair
   PayloadInit(&payloadBfrPair);
   
+  // Create the payload task
   OSTaskCreate(&payloadTCB,
                "Payload task",
                PayloadTask,
@@ -132,31 +126,17 @@ void CreatePayloadTask(void){
                &osErr);
   
   assert(osErr == OS_ERR_NONE);
-  
-//  OSSemCreate(&openPayloadBfrs, "Open payload buffers", NUM_BFRS, &osErr);
-//  assert(osErr == OS_ERR_NONE);
-//  
-//  OSSemCreate(&closedPayloadBfrs, "Closed payload buffers", 0, &osErr);
-//  assert(osErr == OS_ERR_NONE);
-//  
-//  BfrPairInit(&payloadBfrPair,
-//              payload0Space,
-//              payload1Space,
-//              PayloadBfrSize);
 }
 
 /*--------------- P a y l o a d I n i t ---------------
-Initialize payload and reply buffer pairs.
+Initialize payload buffer pair.
 */
 void PayloadInit(BfrPair **pBfrPair){
-  /* Modifying payloadBfrPair and replyBfrPair directly seems to cause problems
-     so placeholder variables pBfrPair and rBfrPair are created then mapped
-     onto payloadBfrPair and replyBfrPair */
+  /* Modifying payloadBfrPair directly seems to cause problems
+     so placeholder variable pBfrPair is created then mapped
+     onto payloadBfrPair */
   BfrPairInit(&payloadBfrPair, pBfr0Space, pBfr1Space, PayloadBfrSize);
-//  BfrPairInit(&replyBfrPair, rBfr0Space, rBfr1Space, ReplyBfrSize);
   *pBfrPair = &payloadBfrPair;
-//  *rBfrPair = &replyBfrPair;
-
 }
 
 /*--------------- P a y l o a d T a s k ---------------
@@ -172,63 +152,56 @@ void PayloadTask(void *data){
   
   for(;;){
     if(pState == P){ // If no reply is being sent check payload data ready conditions
-//      if(GetBfrClosed(&payloadBfrPair)&!PutBfrClosed(&replyBfrPair)){
-        OSSemPend(&closedPayloadBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-        assert(osErr==OS_ERR_NONE);
-        payload = (Payload *) GetBfrAddr(&payloadBfrPair);
-//        payload = (Payload *) GetBfrAddr(payloadBfrPair);
-        if(payload->payloadLen <= 0){  // Check for error cases
-          DispErr((Error_t) payload->payloadLen, reply);
-        }else{
-          if(payload->dstAddr == MyAddress){ // If message is to me, parse a response
-            switch(payload->msgType){
-              case(MSG_TEMP):
-                ParseTemp(payload, reply);
-                break;
-              case(MSG_PRESSURE):
-                ParsePressure(payload, reply);
-                break;
-              case(MSG_HUMIDITY):
-                ParseHumidity(payload, reply);
-                break;
-              case(MSG_WIND):
-                ParseWind(payload, reply);
-                break;
-              case(MSG_RADIATION):
-                ParseRadiation(payload, reply);
-                break;
-              case(MSG_TIMESTAMP):
-                ParseTimeStamp(payload, reply);
-                break;
-              case(MSG_PRECIPITATION):
-                ParsePrecip(payload, reply);
-                break;
-              case(MSG_SENSORID):
-                ParseID(payload, reply);
-                break;
-              default:  // Handle unknown message types
-                DispErr((Error_t) payload->msgType, reply);
-                break;
-            }
-          }else{ // Display an info message if another host is the target
-            DispAssert(ASS_ADDRESS, reply);
-//            if(BfrPairSwappable(&replyBfrPair))
-//              BfrPairSwap(&replyBfrPair);
+      // Wait here for a payload buffer to close
+      OSSemPend(&closedPayloadBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+      assert(osErr==OS_ERR_NONE);
+      payload = (Payload *) GetBfrAddr(&payloadBfrPair);
+      if(payload->payloadLen <= 0){  // Check for error cases
+        DispErr((Error_t) payload->payloadLen, reply);
+      }else{
+        if(payload->dstAddr == MyAddress){ // If message is to me, generate a response
+          switch(payload->msgType){
+            case(MSG_TEMP):
+              ParseTemp(payload, reply);
+              break;
+            case(MSG_PRESSURE):
+              ParsePressure(payload, reply);
+              break;
+            case(MSG_HUMIDITY):
+              ParseHumidity(payload, reply);
+              break;
+            case(MSG_WIND):
+              ParseWind(payload, reply);
+              break;
+            case(MSG_RADIATION):
+              ParseRadiation(payload, reply);
+              break;
+            case(MSG_TIMESTAMP):
+              ParseTimeStamp(payload, reply);
+              break;
+            case(MSG_PRECIPITATION):
+              ParsePrecip(payload, reply);
+              break;
+            case(MSG_SENSORID):
+              ParseID(payload, reply);
+              break;
+            default:  // Handle unknown message types
+              DispErr((Error_t) payload->msgType, reply);
+              break;
           }
+        }else{ // Display an info message if another host is the target
+          DispAssert(ASS_ADDRESS, reply);
         }
-        pState = R;
-        OpenGetBfr(&payloadBfrPair);
-//        OpenGetBfr(payloadBfrPair);
-        OSSemPost(&openPayloadBfrs, OS_OPT_POST_1, &osErr);
-        assert(osErr==OS_ERR_NONE);
-        if(BfrPairSwappable(&payloadBfrPair))
-              BfrPairSwap(&payloadBfrPair);
-//        if(BfrPairSwappable(payloadBfrPair))
-//              BfrPairSwap(payloadBfrPair);
+      }
+      pState = R;
+      OpenGetBfr(&payloadBfrPair);
+      OSSemPost(&openPayloadBfrs, OS_OPT_POST_1, &osErr);
+      assert(osErr==OS_ERR_NONE);
+      if(BfrPairSwappable(&payloadBfrPair))
+            BfrPairSwap(&payloadBfrPair);
     }else{
       replyDone = SendReply(reply);
-      if(replyDone)
-        pState = P;
+      pState = replyDone ? P : R;
     }
   }
 }
@@ -342,7 +315,7 @@ void ParseID(Payload *payload, CPU_CHAR reply[]){
 }
 
 /*--------------- S e n d R e p l y ---------------
-Send the reply message to the replyBfrPair one byte at a time.
+Send the reply message one byte at a time.
 If the entire message has been sent, return true
 */
 CPU_BOOLEAN SendReply(CPU_CHAR reply[]){
@@ -351,12 +324,8 @@ CPU_BOOLEAN SendReply(CPU_CHAR reply[]){
 
   if(j<strlen(reply)){
     PutByte(reply[j]);
-//    PutBfrAddByte(&replyBfrPair, reply[j]);
     j++;
   }else{
-//    ClosePutBfr(&replyBfrPair);
-//    if(BfrPairSwappable(&replyBfrPair))
-//      BfrPairSwap(&replyBfrPair);
     j = 0;
     retVal = TRUE;
   }

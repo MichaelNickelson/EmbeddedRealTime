@@ -24,7 +24,6 @@ CHANGES
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
 #define NUM_BFRS 2
-
 #define SUSPEND_TIMEOUT 100
 
 /*----- Function prototypes -----*/
@@ -35,7 +34,8 @@ void ServiceTx();
 CPU_INT16S GetByte();
 CPU_INT16S PutByte(CPU_INT16S txChar);
 
-/*----- Declare input and output buffer pairs -----*/
+/*----- Global Variables -----*/
+// Declare input and output buffer pairs
 BfrPair iBfrPair;
 CPU_INT08U iBfr0Space[BfrSize];
 CPU_INT08U iBfr1Space[BfrSize];
@@ -44,7 +44,7 @@ BfrPair oBfrPair;
 CPU_INT08U oBfr0Space[BfrSize];
 CPU_INT08U oBfr1Space[BfrSize];
 
-/*----- Initialize openObfrs and closedIBfrs semaphores -----*/
+// Declare openObfrs and closedIBfrs semaphores
 OS_SEM openObfrs;
 OS_SEM closedIBfrs;
 
@@ -93,12 +93,13 @@ void InitSerIO(){
   // Enable interrupts on USART2
   SETENA1 = USART2ENA;
   
+  // Initialize iBfrPair and oBfrPair
   BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, BfrSize);
   BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, BfrSize);
   
+  // Initialize semaphores to be used by Serial communications driver
   OSSemCreate(&openObfrs, "Open oBfrs", NUM_BFRS, &osErr);
   assert(osErr == OS_ERR_NONE);
-  
   OSSemCreate(&closedIBfrs, "Closed iBfrs", 0, &osErr);
   assert(osErr == OS_ERR_NONE);
 }
@@ -158,16 +159,7 @@ CPU_INT16S GetByte(){
   USART_TypeDef *uart = USART2;
   OS_ERR osErr;
   
-//  if(BfrPairSwappable(&iBfrPair))
-//    BfrPairSwap(&iBfrPair);
-//  
-//  if(GetBfrClosed(&iBfrPair)){
-//    uart->CR1 = uart->CR1 | RXNEIE_MASK;
-//    retVal = GetBfrRemByte(&iBfrPair);
-//  }
-  
   if(!GetBfrClosed(&iBfrPair)){
-//    OSSemPend(&closedIBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
     OSSemPend(&closedIBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
     assert(osErr == OS_ERR_NONE);
     
@@ -205,6 +197,4 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
   uart->CR1 = uart->CR1 | TXEIE_MASK;
   
   return retVal;
-  
-//  return PutBfrAddByte(&oBfrPair, txChar);
 }

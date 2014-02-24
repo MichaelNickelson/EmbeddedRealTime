@@ -39,7 +39,7 @@ typedef struct{
   CPU_INT16S c;  // Current byte
   CPU_INT08U checkSum;
   CPU_INT08S payloadLen;
-  BfrPair* payloadBfrPair;
+//  BfrPair* payloadBfrPair;
   CPU_INT08U preamble[HeaderLength-1];
 } StateVariables_t;
 
@@ -49,16 +49,13 @@ typedef struct{
   CPU_INT08U data[1];
 } PktBfr;
 
+/*----- G l o b a l   V a r i a b l e s -----*/
 /*----- Initialize openPayloadBfrs and closedPayloadBfrs semaphores -----*/
 OS_SEM openPayloadBfrs;
 OS_SEM closedPayloadBfrs;
 
 static OS_TCB parsePktTCB;
 static CPU_STK parsePktStk[PARSER_STK_SIZE];
-
-//BfrPair *payloadBfrPair;
-//CPU_INT08U payload0Space[PayloadBfrSize];
-//CPU_INT08U payload1Space[PayloadBfrSize];
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void DoStateP(StateVariables_t *myState);
@@ -91,33 +88,25 @@ void CreateParsePktTask(void){
   
   OSSemCreate(&closedPayloadBfrs, "Closed payload buffers", 0, &osErr);
   assert(osErr == OS_ERR_NONE);
-  
-//  BfrPairInit(&payloadBfrPair,
-//              payload0Space,
-//              payload1Space,
-//              PayloadBfrSize);
 }
 
 /*--------------- P a r s e P k t ---------------
 This is the main function used for packet parsing. It is implemented as a 
 state machine.
 */
-//void ParsePkt(void *payloadBfrPair){
-void ParsePkt(void *data){
+void ParsePkt(void *payloadBfrPair){
 
   static StateVariables_t myState = {.parseState = P,
                                      .c = 0,
                                      .checkSum = 0,
                                      .payloadLen = 0,
                                      .preamble = {0x03, 0xEF, 0xAF}};
-//  myState.payloadBfrPair = payloadBfrPair;
   OS_ERR osErr;
-  
-  /* If data ready conditions aren't met, GetByte() will return -1
-  If a byte is available run through the state machine.*/
-  
+
   for(;;){
     myState.c = GetByte();
+    /* If data ready conditions aren't met, GetByte() will return -1
+    If a byte is available run through the state machine.*/
     if(myState.c!=-1){
       myState.checkSum ^= myState.c; // Maintain running checksum as bytes are received
     
@@ -126,7 +115,9 @@ void ParsePkt(void *data){
           DoStateP(&myState);
           break;
         case L: // Read in packet length
-          OSSemPend(&openPayloadBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+          // Since this is the first time the payload buffer is written to
+          // and this state is only entered once, it makes sense to pend here.
+          OSSemPend(&openPayloadBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
           assert(osErr==OS_ERR_NONE);
           DoStateL(&myState);
           break;
@@ -152,9 +143,7 @@ void DoStateP(StateVariables_t *myState){
   // If the wrong byte is found, go to error state
   if (myState->c != myState->preamble[pb++]){
     // Use preamble index that is currently being compared as the error code
-//    PutBfrAddByte(myState->payloadBfrPair, -(pb));
     PutBfrAddByte(&payloadBfrPair, -(pb));
-//    PutBfrAddByte(payloadBfrPair, -(pb));
     ErrorTransition(myState);
     pb = 0;
   }
@@ -170,16 +159,14 @@ void DoStateP(StateVariables_t *myState){
 Read in the length of the packet. If it's too short, raise an error.
 */
 void DoStateL(StateVariables_t *myState){
-  if(myState->c<ShortestPacket){ // Raise an error if the packet is too short
-//    PutBfrAddByte(myState->payloadBfrPair, ERR_LEN);
+  if(myState->c<ShortestPacket){
+    // Raise an error if the packet is too short
     PutBfrAddByte(&payloadBfrPair, ERR_LEN);
-//    PutBfrAddByte(payloadBfrPair, ERR_LEN);
     ErrorTransition(myState);
   }else{
-    myState->payloadLen = myState->c - HeaderLength; // Calculate packet length
-//    PutBfrAddByte(myState->payloadBfrPair, myState->payloadLen);
+    // Calculate packet length
+    myState->payloadLen = myState->c - HeaderLength;
     PutBfrAddByte(&payloadBfrPair, myState->payloadLen);
-//    PutBfrAddByte(payloadBfrPair, myState->payloadLen);
     myState->parseState = R;
   }
 }
@@ -192,30 +179,18 @@ void DoStateR(StateVariables_t *myState){
   OS_ERR osErr;
   
   if(--myState->payloadLen > 0){
-//     PutBfrAddByte(myState->payloadBfrPair, myState->c);
-     PutBfrAddByte(&payloadBfrPair, myState->c);
-//     PutBfrAddByte(payloadBfrPair, myState->c);
+    PutBfrAddByte(&payloadBfrPair, myState->c);
   }else{
     if(myState->checkSum){
       // Reset put buffer so ERR_CHECKSUM is in the right place
-//      PutBfrReset(myState->payloadBfrPair);
-//      PutBfrAddByte(myState->payloadBfrPair, ERR_CHECKSUM);
       PutBfrReset(&payloadBfrPair);
       PutBfrAddByte(&payloadBfrPair, ERR_CHECKSUM);
-//      PutBfrReset(payloadBfrPair);
-//      PutBfrAddByte(payloadBfrPair, ERR_CHECKSUM);
       ErrorTransition(myState);
     }else{
       myState->parseState = P;
-//      ClosePutBfr(myState->payloadBfrPair);
       ClosePutBfr(&payloadBfrPair);
-//      ClosePutBfr(payloadBfrPair);
-//      if(BfrPairSwappable(myState->payloadBfrPair))
-//        BfrPairSwap(myState->payloadBfrPair);
       if(BfrPairSwappable(&payloadBfrPair))
         BfrPairSwap(&payloadBfrPair);
-//      if(BfrPairSwappable(payloadBfrPair))
-//        BfrPairSwap(payloadBfrPair);
       
       OSSemPost(&closedPayloadBfrs, OS_OPT_POST_1, &osErr);
       assert(osErr==OS_ERR_NONE);
@@ -245,17 +220,11 @@ Called when an error is found to handle progression to error state.
 Close and swap buffers, reset state variables as needed
 */
 void ErrorTransition(StateVariables_t *myState){
-//    ClosePutBfr(myState->payloadBfrPair);
-//    if(BfrPairSwappable(myState->payloadBfrPair))
-//      BfrPairSwap(myState->payloadBfrPair);
   OS_ERR osErr;
   
   ClosePutBfr(&payloadBfrPair);
   if(BfrPairSwappable(&payloadBfrPair))
     BfrPairSwap(&payloadBfrPair);
-//  ClosePutBfr(payloadBfrPair);
-//  if(BfrPairSwappable(payloadBfrPair))
-//    BfrPairSwap(payloadBfrPair);
   
   OSSemPost(&closedPayloadBfrs, OS_OPT_POST_1, &osErr);
   assert(osErr==OS_ERR_NONE);

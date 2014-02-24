@@ -1,6 +1,6 @@
 /*--------------- P r o g 4 . c ---------------
 
-By: Michael Nickelson
+Modified by: Michael Nickelson
 
 PURPOSE
 Receive wireless sensor network packets from the RS232 port,
@@ -8,8 +8,8 @@ interpret and display the messages.
 
 CHANGES
 01-29-2013 gpc -  Created
-02-26-2014 mn  -  Updated for interrupt driven IO.
-03-12-2014 mn  -  Updated to use uCOS-III
+02-26-2014 mn  -  Updated for interrupt driven IO, renamed to Prog3.
+03-12-2014 mn  -  Updated to use uCOS-III, renamed to Prog4.
 */
 
 #include "includes.h"
@@ -111,9 +111,9 @@ static  void  Init (void *p_arg)
     BSP_Ser_Init(BaudRate);
 
     // Initialize the serial I/O driver. 
-    InitSerIO();    
+    InitSerIO();
     
-    // Create the Producer and Consumer tasks.
+    // Create the ParsePkt and Payload tasks.
     CreateParsePktTask();
     CreatePayloadTask();
     
