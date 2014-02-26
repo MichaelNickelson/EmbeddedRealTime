@@ -339,11 +339,17 @@ CPU_BOOLEAN SendReply(CPU_CHAR reply[]){
 }
 
 // Byte reversal functions for 1 and 2 word ints
+/*--------------- R e v e r s e 2 B y t e s ---------------
+Byte reversal of a 2-byte int
+*/
 CPU_INT16U Reverse2Bytes(CPU_INT16U b){
   b = (b<<8) | (b>>8);
   return b;
 }
 
+/*--------------- R e v e r s e 4 B y t e s ---------------
+Byte reversal of a 4-byte int
+*/
 CPU_INT32U Reverse4Bytes(CPU_INT32U b){
   b = (b<<24) | ((b<<8)&0xFF0000) | ((b>>8)&0xFF00) | (b>>24);
   return b;
