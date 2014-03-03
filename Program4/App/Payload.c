@@ -36,6 +36,7 @@ CHANGES
 #define PayloadPrio 4
 #define PAYLOAD_STK_SIZE 128
 #define SUSPEND_TIMEOUT 100
+#define HIGH_WATER_LIMIT 10
 
 /*-----  Assign easy to read names to message ID -----*/
 #define MSG_TEMP 1
@@ -122,7 +123,7 @@ void CreatePayloadTask(void){
                NULL,
                PayloadPrio,
                &payloadStk[0],
-               PAYLOAD_STK_SIZE / 10,
+               PAYLOAD_STK_SIZE / HIGH_WATER_LIMIT,
                PAYLOAD_STK_SIZE,
                0,
                0,

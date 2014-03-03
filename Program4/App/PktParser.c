@@ -29,6 +29,7 @@ CHANGES
 #define PARSER_STK_SIZE 128
 #define ParserPrio 4
 #define PayloadBfrSize 14
+#define HIGH_WATER_LIMIT 10
 
 /*----- t y p e d e f s   u s e d   i n   p a r s e r -----*/
 /* Parser state data type */
@@ -84,7 +85,7 @@ void CreateParsePktTask(void){
                NULL,
                ParserPrio,
                &parsePktStk[0],
-               PARSER_STK_SIZE / 10,
+               PARSER_STK_SIZE / HIGH_WATER_LIMIT,
                PARSER_STK_SIZE,
                0,
                0,

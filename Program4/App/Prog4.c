@@ -25,6 +25,7 @@ CHANGES
 #define Init_STK_SIZE 128 // Init stack size
 #define Init_PRIO 2 // Init task priority
 #define BaudRate 9600 // Baud rate setting
+#define HIGH_WATER_LIMIT 10
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 static OS_TCB initTCB; // Init task TCB
@@ -56,7 +57,7 @@ CPU_VOID  main (CPU_VOID)
                NULL,                // Address of optional task data block
                Init_PRIO,           // Task priority
                &initStk[0],         // Base address of task stack space
-               Init_STK_SIZE / 10,  // Stack water mark limit
+               Init_STK_SIZE / HIGH_WATER_LIMIT,  // Stack water mark limit
                Init_STK_SIZE,       // Task stack size
                0,                   // This task has no task queue
                0,                   // Number of clock ticks (defaults to 10)
