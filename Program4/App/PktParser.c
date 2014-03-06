@@ -144,9 +144,12 @@ If the wrong byte is found, it moves to the error state.
 */
 void DoStateP(StateVariables_t *myState){
   static CPU_INT08S pb = 0;
+  OS_ERR osErr;
   
   // If the wrong byte is found, go to error state
   if (myState->c != myState->preamble[pb++]){
+    OSSemPend(&openPayloadBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+    assert(osErr==OS_ERR_NONE);
     // Use preamble index that is currently being compared as the error code
     PutBfrAddByte(&payloadBfrPair, -(pb));
     ErrorTransition(myState);
