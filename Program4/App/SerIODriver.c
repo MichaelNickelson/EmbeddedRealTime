@@ -23,7 +23,7 @@ CHANGES
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
 #define NUM_BFRS 2
-#define SUSPEND_TIMEOUT 100
+#define SUSPEND_TIMEOUT 250
 
 /*----- Local Function prototypes -----*/
 void ServiceRx();

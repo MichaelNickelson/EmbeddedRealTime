@@ -25,7 +25,7 @@ CHANGES
 #define HeaderLength 4 
 #define ShortestPacket 8
 #define NUM_BFRS 2
-#define SUSPEND_TIMEOUT 100
+#define SUSPEND_TIMEOUT 250
 #define PARSER_STK_SIZE 128
 #define ParserPrio 4
 #define PayloadBfrSize 14
