@@ -35,7 +35,7 @@ CHANGES
 #define ReplyBfrSize 80
 #define PayloadPrio 4
 #define PAYLOAD_STK_SIZE 128
-#define SUSPEND_TIMEOUT 100
+#define SUSPEND_TIMEOUT 0
 #define HIGH_WATER_LIMIT 10
 
 /*-----  Assign easy to read names to message ID -----*/
@@ -159,7 +159,7 @@ void PayloadTask(void *data){
   for(;;){
     if(pState == P){ // If no reply is being sent check payload data ready conditions
       // Wait here for a payload buffer to close
-      OSSemPend(&closedPayloadBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+      OSSemPend(&closedPayloadBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
       assert(osErr==OS_ERR_NONE);
       payload = (Payload *) GetBfrAddr(&payloadBfrPair);
       if(payload->payloadLen <= 0){  // Check for error cases

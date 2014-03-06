@@ -62,26 +62,28 @@ void ParsePkt(BfrPair *payloadBfrPair){
                                      .preamble = {0x03, 0xEF, 0xAF}};
   myState.payloadBfrPair = payloadBfrPair;
 
-  /* If data ready conditions aren't met, GetByte() will return -1
-  If a byte is available run through the state machine.*/
-  myState.c = GetByte();
-  if(myState.c!=-1){
-    myState.checkSum ^= myState.c; // Maintain running checksum as bytes are received
-  
-    switch (myState.parseState){
-      case P:  // Look for a preamble
-        DoStateP(&myState);
-        break;
-      case L: // Read in packet length
-        DoStateL(&myState);
-        break;
-      case R:   // Read in data
-        DoStateR(&myState);
-        break;
-      case ER:  // If an error occurs, or a an unknown state arises,
-      default:  // look for a  full preamble.
-        DoStateER(&myState);
-        break;
+  /* Check if data is ready. If source ready condition isn't met, GetByte()
+  will return -1. If ready, run through the state machine.*/
+  if(!PutBfrClosed(payloadBfrPair)){
+    myState.c = GetByte();
+    if(myState.c!=-1){
+      myState.checkSum ^= myState.c; // Maintain running checksum as bytes are received
+    
+      switch (myState.parseState){
+        case P:  // Look for a preamble
+          DoStateP(&myState);
+          break;
+        case L: // Read in packet length
+          DoStateL(&myState);
+          break;
+        case R:   // Read in data
+          DoStateR(&myState);
+          break;
+        case ER:  // If an error occurs, or a an unknown state arises,
+        default:  // look for a  full preamble.
+          DoStateER(&myState);
+          break;
+      }
     }
   }
 }
