@@ -36,7 +36,7 @@ void DispErr(Error_t e, CPU_CHAR reply[]){
       sprintf(reply, "\a*** ERROR: Bad Packet Size\n");
       break;
     default:
-      sprintf(reply, "\a*** ERROR: Unkown Message Type\n");
+      sprintf(reply, "\a*** ERROR: Unknown Message Type\n");
       break;
   }
 }
