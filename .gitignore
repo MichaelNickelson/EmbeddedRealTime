@@ -2,9 +2,15 @@
 /Program2/
 /Program3/
 /Program4/
+/Project/
 
 /Programs/
 /Prog2Starter/
 /Prog3Starter/
 /UCOSDemo/
 /Micrium/
+/CtrlCtr/
+/MboxDemo/
+/QDemo/
+
+*.zip
