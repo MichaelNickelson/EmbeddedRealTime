@@ -13,9 +13,8 @@ CHANGES
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#define LONGEST_PACKET 24
-
 #include "includes.h"
+#include "Constants.h"
 
 /*----- t y p e d e f s   u s e d   i n   B u f f e r -----*/
 typedef struct
@@ -25,7 +24,7 @@ typedef struct
   CPU_INT16U putIndex;
   CPU_INT16U getIndex;
 //  CPU_INT08U *buffer;
-  CPU_INT08U buffer[LONGEST_PACKET];
+  CPU_INT08U buffer[BfrLength];
 } Buffer;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/

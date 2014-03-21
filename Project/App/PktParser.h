@@ -17,8 +17,6 @@ CHANGES
 #define PKTPARSER_H
 
 //// Allow semaphores to be used by Payload.c
-//extern OS_SEM openPayloadBfrs;
-//extern OS_SEM closedPayloadBfrs;
 extern OS_Q parserQueue;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/

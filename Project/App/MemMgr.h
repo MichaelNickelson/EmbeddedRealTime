@@ -21,7 +21,7 @@ CHANGES
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
 /* Total number of buffers in buffer pool */
-#define PoolSize	6
+#define PoolSize	10
 
 /*----- g l o b a l s -----*/
 

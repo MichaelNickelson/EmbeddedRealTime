@@ -16,21 +16,21 @@ CHANGES
 #include "includes.h"
 #include "PktParser.h"
 #include "assert.h"
+#include "Constants.h"
 #include "BfrPair.h"
 #include "Error.h"
 #include "Framer.h"
 #include "MemMgr.h"
 #include "SerIODriver.h"
 
+#include "Constants.h"
+
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
-#define HeaderLength 4 
 #define ShortestPacket 4
 #define NUM_BFRS 2
 #define SUSPEND_TIMEOUT 250
 #define PARSER_STK_SIZE 128
 #define ParserPrio 4
-#define PayloadBfrSize 14
-#define HIGH_WATER_LIMIT 10
 
 /*----- t y p e d e f s   u s e d   i n   p a r s e r -----*/
 /* Parser state data type */
@@ -42,7 +42,7 @@ typedef struct{
   CPU_INT16S c;  // Current byte
   CPU_INT08U checkSum;
   CPU_INT08S payloadLen;
-  CPU_INT08U preamble[HeaderLength-1];
+  CPU_INT08U preamble[PREAMBLE_LENGTH];
   Buffer *payloadBfr;
 } StateVariables_t;
 
@@ -150,7 +150,7 @@ void DoStateP(StateVariables_t *myState){
   }
   
   // Once the full header is found, move to the next state
-  if (pb >= HeaderLength-1){
+  if (pb >= PREAMBLE_LENGTH){
     pb = 0;
     myState->parseState = L;
   }
@@ -166,7 +166,7 @@ void DoStateL(StateVariables_t *myState){
     ErrorTransition(myState, ERR_LEN);
   }else{
     // Calculate packet length
-    myState->payloadLen = myState->c - HeaderLength;
+    myState->payloadLen = myState->c - (PREAMBLE_LENGTH+1);
     BfrAddByte(myState->payloadBfr, myState->payloadLen);
     myState->parseState = R;
   }
@@ -208,7 +208,7 @@ void DoStateER(StateVariables_t *myState){
     pb = 0;
     myState->checkSum = 0;
   }
-  if(pb >= HeaderLength-1){
+  if(pb >= PREAMBLE_LENGTH){
     myState->parseState = L; // Move on if preamble found
     pb = 0;
   }
@@ -219,10 +219,10 @@ Called when an error is found to handle progression to error state.
 Close and swap buffers, reset state variables as needed
 */
 void ErrorTransition(StateVariables_t *myState, CPU_CHAR err){
-//  Buffer *pBfr = myState->payloadBfr;
-  
-//  SendError((Error_t) err, pBfr);
-  SendError((Error_t) err, myState->payloadBfr);
+  Buffer *pBfr = myState->payloadBfr;
+  SendError(pBfr, (Error_t) err);
+
+//  SendError(myState->payloadBfr, (Error_t) err);
   
   myState->payloadBfr = NULL;
   

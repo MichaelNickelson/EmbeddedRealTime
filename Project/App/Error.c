@@ -12,21 +12,23 @@ CHANGES
 #include "includes.h"
 #include "Error.h"
 #include "assert.h"
+#include "Constants.h"
 #include "Framer.h"
-#include "Payload.h"
+
+#define ERR_PAYLOAD_SIZE 5
 
 /*--------------- S e n d E r r o r ---------------
 Generate an error message and send it to the framer for transmission
 */
-void SendError(Error_t e, Buffer *eBfr){
+void SendError(Buffer *eBfr, Error_t e){
   OS_ERR osErr;
   
   BfrReset(eBfr);
   
-  BfrAddByte(eBfr, 9);
-  BfrAddByte(eBfr, 1);
-  BfrAddByte(eBfr, 2);
-  BfrAddByte(eBfr, 0x0B);
+  BfrAddByte(eBfr, ERR_PAYLOAD_SIZE + PREAMBLE_LENGTH +1);
+  BfrAddByte(eBfr, CtrlCtrAddress);
+  BfrAddByte(eBfr, MyAddress);
+  BfrAddByte(eBfr, MSG_ERR);
   BfrAddByte(eBfr, e);
   
   BfrClose(eBfr);

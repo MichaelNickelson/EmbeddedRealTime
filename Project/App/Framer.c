@@ -14,7 +14,7 @@ CHANGES
 #include "Framer.h"
 #include "assert.h"
 #include "BfrPair.h"
-//#include "Error.h"
+#include "Constants.h"
 #include "MemMgr.h"
 #include "SerIODriver.h"
 
@@ -22,8 +22,8 @@ CHANGES
 #define SUSPEND_TIMEOUT 250
 #define FRAMER_STK_SIZE 128
 #define FramerPrio 4
-#define HIGH_WATER_LIMIT 10
-#define PREAMBLE_LENGTH 3
+
+#define ACK_PAYLOAD_SIZE 5
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 OS_TCB framerTCB;
@@ -98,4 +98,22 @@ void Framer(void *data){
     Free(payloadBfr);
     payloadBfr = NULL;
   }
+}
+
+/*--------------- S e n d A c k ---------------
+Send acknowledgement message to Framer
+*/
+void SendAck(Buffer *payloadBfr, CPU_INT08U type){
+  OS_ERR osErr;
+  
+  // Send an Ack packet to the framer for transmission
+  BfrAddByte(payloadBfr, ACK_PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
+  BfrAddByte(payloadBfr, CtrlCtrAddress);
+  BfrAddByte(payloadBfr, MyAddress);
+  BfrAddByte(payloadBfr, MSG_ACK);
+  BfrAddByte(payloadBfr, type);
+  
+  BfrClose(payloadBfr);
+  OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+  assert(osErr == OS_ERR_NONE);
 }

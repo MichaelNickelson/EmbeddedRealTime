@@ -26,6 +26,7 @@ CHANGES
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
 #define SuspendTimeout 100	/* -- Timeout suspended task if not awakened. */
+#define BUFFER_SIZE 24
 
 /*----- g l o b a l s -----*/
 
@@ -81,8 +82,6 @@ Buffer *Allocate(void)
   OS_ERR osErr;/* -- uCos Error Code */   
    
   Buffer *bfr;  // Allocated buffer address
-//  CPU_INT08U bfrSpace[24];
-  CPU_INT16U size = 24;
    
   /* Wait until there is an available buffer. */
   OSSemPend(&bfrAvail, SuspendTimeout, OS_OPT_PEND_BLOCKING, NULL, &osErr);
@@ -93,7 +92,7 @@ Buffer *Allocate(void)
   assert(osErr==OS_ERR_NONE);
 	
   /* Initialize the buffer to prepare for filling. */
-  BfrInit(bfr, size);
+  BfrInit(bfr, BUFFER_SIZE);
 //  BfrReset(bfr);
 	
   return bfr;

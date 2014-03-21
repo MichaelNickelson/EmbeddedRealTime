@@ -11,50 +11,27 @@ CHANGES
 
 #include "includes.h"
 #include "RobotManager.h"
+#include "Constants.h"
 #include "assert.h"
 #include "Buffer.h"
 #include "Error.h"
 #include "Framer.h"
 #include "PktParser.h"
+#include "RobotControl.h"
 #include "SerIODriver.h"
 #include "string.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
-#define MyAddress 2
 
-#define RobotMgrBfrSize 24
 #define LONGEST_PATH 10
 
 #define RobotMgrPrio 4
 #define ROBOT_MGR_STK_SIZE 128
 #define SUSPEND_TIMEOUT 0
-#define HIGH_WATER_LIMIT 10
-
-/*-----  Assign easy to read names to message ID -----*/
-#define MSG_RESET 0
-#define MSG_ADD 1
-#define MSG_MOVE 2
-#define MSG_PATH 3
-#define MSG_LOOP 4
-#define MSG_STOP_LOOP 5
-
-/*----- t y p e d e f s   u s e d   i n   p a y l o a d   m o d u l e -----*/
-#pragma pack(1)
-typedef struct
-{
-  CPU_INT08S    payloadLen;
-  CPU_INT08U    dstAddr;
-  CPU_INT08U    srcAddr;
-  CPU_INT08U    msgType;
-  CPU_INT08U    payloadData[2*LONGEST_PATH];
-} Payload;
-
-typedef enum { P, R } PayloadState;
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotMgrTask(void *data);
-void ParseReset(Payload *payload, Buffer payloadBfr);
-void SendAck(Buffer *pBfr, CPU_INT08U type);
+void ParseReset(void);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 // Task TCB and stack
@@ -62,7 +39,7 @@ static OS_TCB robotMgrTCB;
 static CPU_STK robotMgrStk[ROBOT_MGR_STK_SIZE];
 
 /*--------------- C r e a t e R o b o t M g r T a s k ---------------
-Create/Initialize payload buffer pair and start the payload task
+Create/Initialize robot manager task
 */
 void CreateRobotMgrTask(void){
   OS_ERR osErr;
@@ -90,22 +67,14 @@ Get a payload from the packet parser and forward it to the appropriate robot
 controller.
 */
 void RobotMgrTask(void *data){
-  CPU_BOOLEAN replyDone = FALSE;
-  static PayloadState pState = P;
-//  static CPU_CHAR reply[ReplyBfrSize];
-  Buffer *pBfr = NULL;
+  Buffer *payloadBfr = NULL;
   Payload *payload;
   OS_ERR osErr;
   OS_MSG_SIZE msgSize;
   
   for(;;){
-    if(pState == P){ // If no reply is being sent check payload data ready conditions
-      // Wait here for a payload buffer to close
-//      OSSemPend(&closedPayloadBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-//      assert(osErr==OS_ERR_NONE);
-      
-    if(pBfr == NULL){
-      pBfr = OSQPend(&parserQueue,
+    if(payloadBfr == NULL){
+      payloadBfr = OSQPend(&parserQueue,
                    0,
                    OS_OPT_PEND_BLOCKING,
                    &msgSize,
@@ -114,48 +83,42 @@ void RobotMgrTask(void *data){
     assert(osErr == OS_ERR_NONE);
     }
     
-    payload = (Payload *) pBfr->buffer;
+    payload = (Payload *) payloadBfr->buffer;
     
-    BfrReset(pBfr);
+//    CPU_INT08U x = sizeof(Buffer);
+//    CPU_INT32U *p_z = (CPU_INT32U*) payload;
+//    CPU_INT32U x = p_z[0];
+    
+    BfrReset(payloadBfr);
     
     if(payload->dstAddr == MyAddress){ // If message is to me, generate a response
         switch(payload->msgType){
           case(MSG_RESET):
-            SendAck(pBfr, MSG_RESET);
-            ParseReset(payload, *pBfr);
+            SendAck(payloadBfr, MSG_RESET);
+            ParseReset();
             break;
           case(MSG_ADD):
-            SendAck(pBfr, MSG_ADD);
+            AddRobot(payloadBfr);
             break;
           case(MSG_MOVE):
-            SendAck(pBfr, MSG_MOVE);
+            SendAck(payloadBfr, MSG_MOVE);
             break;
           case(MSG_PATH):
-            SendAck(pBfr, MSG_PATH);
+            SendAck(payloadBfr, MSG_PATH);
             break;
           case(MSG_LOOP):
-            SendAck(pBfr, MSG_LOOP);
+            SendAck(payloadBfr, MSG_LOOP);
             break;
           case(MSG_STOP_LOOP):
-            SendAck(pBfr, MSG_STOP_LOOP);
+            SendAck(payloadBfr, MSG_STOP_LOOP);
             break;
           default:  // Handle unknown message types
-            SendError(ERR_MGR_TYPE, pBfr);
+            SendError(payloadBfr, ERR_MGR_TYPE);
             break;
         }
-        pBfr = NULL;
+        payloadBfr = NULL;
     }else if(payload->dstAddr == 0){
-      SendAck(pBfr, MSG_ADD);                                                   // This is not right!!!!!!!!!!!!!!!!!
-    }
-//      pState = R;
-//      OpenGetBfr(&payloadBfrPair);
-//      OSSemPost(&openPayloadBfrs, OS_OPT_POST_1, &osErr);
-//      assert(osErr==OS_ERR_NONE);
-//      if(BfrPairSwappable(&payloadBfrPair))
-//            BfrPairSwap(&payloadBfrPair);
-    }else{
-//      replyDone = SendReply(reply);
-      pState = replyDone ? P : R;
+      SendAck(payloadBfr, MSG_ADD);                                              // This is not right!!!!!!!!!!!!!!!!!
     }
   }
 }
@@ -165,25 +128,7 @@ void RobotMgrTask(void *data){
 /*--------------- P a r s e R e s e t ---------------
 Reset the board
 */
-void ParseReset(Payload *payload, Buffer payloadBfr){
+void ParseReset(void){
   NVIC_GenerateCoreReset();
   return;
-}
-
-/*--------------- S e n d A c k ---------------
-Send acknowledgement message to Framer
-*/
-void SendAck(Buffer *pBfr, CPU_INT08U type){
-  OS_ERR osErr;
-  
-  // Send an error packet to the framer for transmission
-  BfrAddByte(pBfr, 9);
-  BfrAddByte(pBfr, 1);
-  BfrAddByte(pBfr, 2);
-  BfrAddByte(pBfr, 0x0A);
-  BfrAddByte(pBfr, type);
-  
-  BfrClose(pBfr);
-  OSQPost(&framerQueue, pBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-  assert(osErr == OS_ERR_NONE);
 }

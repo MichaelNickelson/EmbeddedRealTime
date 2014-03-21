@@ -13,7 +13,7 @@ CHANGES
 */
 
 #include "includes.h"
-//#include "Payload.h"
+#include "Constants.h"
 #include "assert.h"
 #include "Framer.h"
 #include "Intrpt.h"
@@ -28,7 +28,6 @@ CHANGES
 #define Init_STK_SIZE 128 // Init stack size
 #define Init_PRIO 2 // Init task priority
 #define BaudRate 9600 // Baud rate setting
-#define HIGH_WATER_LIMIT 10
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 static OS_TCB initTCB; // Init task TCB
