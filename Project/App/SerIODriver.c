@@ -31,11 +31,13 @@ void ServiceTx();
 
 /*----- Global Variables -----*/
 // Declare input and output buffer pairs
-static BfrPair iBfrPair;
+//static BfrPair iBfrPair;
+BfrPair iBfrPair;
 //static CPU_INT08U iBfr0Space[BfrSize];
 //static CPU_INT08U iBfr1Space[BfrSize];
 
-static BfrPair oBfrPair;
+//static BfrPair oBfrPair;
+BfrPair oBfrPair;
 //static CPU_INT08U oBfr0Space[BfrSize];
 //static CPU_INT08U oBfr1Space[BfrSize];
 

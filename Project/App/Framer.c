@@ -21,7 +21,7 @@ CHANGES
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 #define SUSPEND_TIMEOUT 250
 #define FRAMER_STK_SIZE 128
-#define FramerPrio 4
+#define FramerPrio 6
 
 #define ACK_PAYLOAD_SIZE 5
 
@@ -67,6 +67,7 @@ void Framer(void *data){
   Buffer *payloadBfr = NULL;
   CPU_INT08U c;
   CPU_INT08U cs;
+  BfrPair oBfrPair;
   
   CPU_INT08U preamble[PREAMBLE_LENGTH] = {0x03, 0xAF, 0xEF};
   
@@ -94,6 +95,10 @@ void Framer(void *data){
       PutByte(c);
     }
     PutByte(cs);
+    
+//    ClosePutBfr(&oBfrPair);
+//    if(BfrPairSwappable(&oBfrPair))
+//      BfrPairSwap(&oBfrPair);
     
     Free(payloadBfr);
     payloadBfr = NULL;

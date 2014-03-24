@@ -44,6 +44,17 @@ CHANGES
 #define MSG_ACK 0x0A
 #define MSG_ERR 0x0B
 
+/*-----  Directions used for step packets -----*/
+#define N 1
+#define NE 2
+#define E 3
+#define SE 4
+#define S 5
+#define SW 6
+#define W 7
+#define NW 8
+#define NoStep 0
+
 /*----- t y p e d e f s   u s e d   i n   t h i s   p r o j e c t -----*/
 typedef struct
 {
@@ -60,14 +71,13 @@ typedef struct
   CPU_INT08U    msgType;
   union
   {
-    Coord_t     path[LONGEST_PATH];
     struct
     {
       CPU_INT08U  robotAddress;
-      Coord_t initialLocation;
-    } newRobot;
+      Coord_t destination[LONGEST_PATH];
+    } robot;
     CPU_INT08U  direction;
-    CPU_INT08U  messageType;
+    CPU_INT08U  ackType;
     CPU_INT08U  errorCode;
   } payloadData;
 } Payload;
