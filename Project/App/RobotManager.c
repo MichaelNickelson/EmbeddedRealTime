@@ -107,9 +107,7 @@ void RobotMgrTask(void *data){
           case(MSG_MOVE):
             OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
                     payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-//            OSSemPost(&messageWaiting[payload->payloadData.robot.robotAddress - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
-//            SendAck(MSG_MOVE);
-//            Free(payloadBfr);
+            SendAck(MSG_MOVE);
             break;
           case(MSG_PATH):
             SendAck(MSG_PATH);
@@ -129,9 +127,9 @@ void RobotMgrTask(void *data){
 //    }else{
       OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
                     payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-      OSSemPost(&messageWaiting[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
-      payloadBfr = NULL;
+      OSSemPost(&messageWaiting[(payload->srcAddr) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
     }
+  payloadBfr = NULL;
   }
 }
 

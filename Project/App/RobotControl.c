@@ -91,7 +91,6 @@ void RobotCtrlTask(void *data){
   Robot_t *rob = (Robot_t *) data;
   
   for(;;){
-    rob = (Robot_t *) data;
     if(payloadBfr == NULL){
       payloadBfr = OSQPend(&robotCtrlQueue[rob->id - FIRST_ROBOT],
                    0,
@@ -108,14 +107,14 @@ void RobotCtrlTask(void *data){
     
     switch(payload->msgType){
       case(MSG_MOVE):
-        SendAck(MSG_MOVE);
         botID = payload->payloadData.robot.robotAddress;
-        while((destination.x != currentLocation.x) ||
+//        while((destination.x != currentLocation.x) ||
+//              (destination.y != currentLocation.y)){
+        if((destination.x != currentLocation.x) ||
               (destination.y != currentLocation.y)){
           MoveRobot(payloadBfr);
-//          payloadBfr = NULL;
           
-          OSSemPend(&messageWaiting[botID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+        OSSemPend(&messageWaiting[botID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
           payloadBfr = OSQPend(&robotCtrlMbox[botID - FIRST_ROBOT],
                        0,
                        OS_OPT_PEND_BLOCKING,
@@ -123,16 +122,16 @@ void RobotCtrlTask(void *data){
                        NULL,
                        &osErr);
           payload = (Payload *) payloadBfr->buffer;
-          currentLocation.x = payload->payloadData.hereIAm.x;
-          currentLocation.y = payload->payloadData.hereIAm.y;
-          robots[payload->payloadData.robot.robotAddress].location = currentLocation;
-//          OSSemPend(&messageWaiting[id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-          assert(osErr == OS_ERR_NONE);
+//          currentLocation.x = payload->payloadData.hereIAm.x;
+//          currentLocation.y = payload->payloadData.hereIAm.y;
+//          robots[payload->payloadData.robot.robotAddress].location = currentLocation;
+////          OSSemPend(&messageWaiting[id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+//          assert(osErr == OS_ERR_NONE);
               }
         break;
     }
     
-    payloadBfr = NULL;
+//    payloadBfr = NULL;
   }
 }
 

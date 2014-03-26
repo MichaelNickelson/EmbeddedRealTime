@@ -205,7 +205,12 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
 Flush the output buffer.
 */
 void BfrFlush(void){
-    ClosePutBfr(&oBfrPair);
-    if(BfrPairSwappable(&oBfrPair))
-      BfrPairSwap(&oBfrPair);
+  OS_ERR osErr;
+  
+//  while(GetBfrClosed(&oBfrPair)){};
+  OSSemPend(&openObfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+     
+  ClosePutBfr(&oBfrPair);
+  if(BfrPairSwappable(&oBfrPair))
+    BfrPairSwap(&oBfrPair);
 }
