@@ -19,7 +19,7 @@ CHANGES
 #define FIRST_ROBOT 3
 #define MAX_ROBOTS 13
 
-#define X_LIM 29
+#define X_LIM 39
 #define Y_LIM 15
 
 #define HIGH_WATER_LIMIT 10

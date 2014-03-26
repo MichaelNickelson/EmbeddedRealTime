@@ -25,6 +25,7 @@ typedef struct
 {
   CPU_INT08U id;
   Coord_t location;
+  Coord_t destination;
   CPU_BOOLEAN exists;
 } Robot_t;
 
@@ -87,8 +88,9 @@ void RobotCtrlTask(void *data){
   Payload *payload;
   OS_ERR osErr;
   OS_MSG_SIZE msgSize;
-  CPU_INT08U botID = 0;
   Robot_t *rob = (Robot_t *) data;
+  Coord_t currentLocation;
+  Coord_t destination;
   
   for(;;){
     if(payloadBfr == NULL){
@@ -102,36 +104,39 @@ void RobotCtrlTask(void *data){
     }
     
     payload = (Payload *) payloadBfr->buffer;
-    Coord_t destination = payload->payloadData.robot.destination[0];
-    Coord_t currentLocation = robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].location;
     
     switch(payload->msgType){
       case(MSG_MOVE):
-        botID = payload->payloadData.robot.robotAddress;
-//        while((destination.x != currentLocation.x) ||
-//              (destination.y != currentLocation.y)){
+        currentLocation = robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].location;
+        destination = payload->payloadData.robot.destination[0];
+        robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].destination = destination;
         if((destination.x != currentLocation.x) ||
-              (destination.y != currentLocation.y)){
+              (destination.y != currentLocation.y))
           MoveRobot(payloadBfr);
-          
-        OSSemPend(&messageWaiting[botID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-          payloadBfr = OSQPend(&robotCtrlMbox[botID - FIRST_ROBOT],
-                       0,
-                       OS_OPT_PEND_BLOCKING,
-                       &msgSize,
-                       NULL,
-                       &osErr);
-          payload = (Payload *) payloadBfr->buffer;
-//          currentLocation.x = payload->payloadData.hereIAm.x;
-//          currentLocation.y = payload->payloadData.hereIAm.y;
-//          robots[payload->payloadData.robot.robotAddress].location = currentLocation;
-////          OSSemPend(&messageWaiting[id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-//          assert(osErr == OS_ERR_NONE);
-              }
+        OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+        assert(osErr == OS_ERR_NONE);
+        payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT],
+                   0,
+                   OS_OPT_PEND_BLOCKING,
+                   &msgSize,
+                   NULL,
+                   &osErr);
+        assert(osErr == OS_ERR_NONE);
+        payload = (Payload *) payloadBfr->buffer;
+        break;
+      case(MSG_HERE_I_AM):
+        robots[payload->srcAddr - FIRST_ROBOT].location = payload->payloadData.hereIAm;
+        currentLocation = payload->payloadData.hereIAm;
+        destination = robots[payload->srcAddr-FIRST_ROBOT].destination;
+        
+        if((destination.x != currentLocation.x) ||
+           (destination.y != currentLocation.y)){
+             MoveRobot(payloadBfr);
+             }
         break;
     }
     
-//    payloadBfr = NULL;
+    payloadBfr = NULL;
   }
 }
 
@@ -154,7 +159,9 @@ void AddRobot(Buffer *payloadBfr){
   }else{
     for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
       // And make sure the starting point isn't already taken by someone else
-      if((location.x == robots[j].location.x) && (location.y == robots[j].location.y)){
+      if((location.x == robots[j].location.x) &&
+         (location.y == robots[j].location.y) &&
+          robots[j].exists){
         SendError(ERR_ADD_OCCUPIED);
         return;
       }
@@ -172,47 +179,90 @@ Move a robot to the given coordinate
 */
 void MoveRobot(Buffer *payloadBfr){
   OS_ERR osErr;
+  Coord_t nextLocation;
   
   Payload *payload = (Payload *) payloadBfr->buffer;
   CPU_INT08U direction = 0;
-  Coord_t destination = payload->payloadData.robot.destination[0];
+  CPU_INT08U botID = payload->payloadData.robot.robotAddress;
+  
   Coord_t currentLocation = robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].location;
+  Coord_t destination = payload->payloadData.robot.destination[0];
+  
+  if(payload->msgType==MSG_HERE_I_AM){
+     currentLocation.x = payload->payloadData.hereIAm.x;
+     currentLocation.y = payload->payloadData.hereIAm.y;
+     destination.x = robots[payload->srcAddr-FIRST_ROBOT].destination.x;
+     destination.y = robots[payload->srcAddr-FIRST_ROBOT].destination.y;
+     botID = payload->srcAddr;
+  }
   
   BfrReset(payloadBfr);
+  if(destination.x > currentLocation.x){
+    if(destination.y < currentLocation.y){
+      direction = SE;
+      nextLocation.x = currentLocation.x + 1;
+      nextLocation.y = currentLocation.y - 1;
+    }
+    else if(destination.y == currentLocation.y){
+      direction = E;
+      nextLocation.x = currentLocation.x + 1;
+      nextLocation.y = currentLocation.y;
+    }
+    else if(destination.y > currentLocation.y){
+      direction = NE;
+      nextLocation.x = currentLocation.x + 1;
+      nextLocation.y = currentLocation.y + 1;
+    }
+  }else if(destination.x == currentLocation.x){
+    if(destination.y < currentLocation.y){
+      direction = S;
+      nextLocation.x = currentLocation.x;
+      nextLocation.y = currentLocation.y - 1;
+    }
+    else if(destination.y > currentLocation.y){
+      direction = N;
+      nextLocation.x = currentLocation.x;
+      nextLocation.y = currentLocation.y + 1;
+    }
+  }else if(destination.x < currentLocation.x){
+    if(destination.y < currentLocation.y){
+      direction = SW;
+      nextLocation.x = currentLocation.x - 1;
+      nextLocation.y = currentLocation.y - 1;
+    }
+    else if(destination.y == currentLocation.y){
+      direction = W;
+      nextLocation.x = currentLocation.x - 1;
+      nextLocation.y = currentLocation.y;
+    }
+    else if(destination.y > currentLocation.y){
+      direction = NW;
+      nextLocation.x = currentLocation.x - 1;
+      nextLocation.y = currentLocation.y + 1;
+    }
+  }
   
-//  while((destination.x != currentLocation.x) &&
-//          (destination.y != currentLocation.y)){
-            if(destination.x > currentLocation.x){
-              if(destination.y < currentLocation.y)
-                direction = SE;
-              else if(destination.y == currentLocation.y)
-                direction = E;
-              else if(destination.y > currentLocation.y)
-                direction = NE;
-            }else if(destination.x == currentLocation.x){
-              if(destination.y < currentLocation.y)
-                direction = S;
-              else if(destination.y > currentLocation.y)
-                direction = N;
-            }else if(destination.x < currentLocation.x){
-              if(destination.y < currentLocation.y)
-                direction = SW;
-              else if(destination.y == currentLocation.y)
-                direction = W;
-              else if(destination.y > currentLocation.y)
-                direction = NW;
-            }
-    BfrAddByte(payloadBfr, 9);
-    BfrAddByte(payloadBfr, payload->payloadData.robot.robotAddress);
-    BfrAddByte(payloadBfr, 2);
-    BfrAddByte(payloadBfr, 0x07);
-    BfrAddByte(payloadBfr, direction);
-    
-    BfrClose(payloadBfr);
-    OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-    assert(osErr == OS_ERR_NONE);
-    
-    payloadBfr = NULL;
+  for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
+      if((nextLocation.x == robots[j].location.x) &&
+         (nextLocation.y == robots[j].location.y) &&
+          robots[j].exists){
+        direction++;
+      }
+    }
+  if(direction>8)
+    direction = 1;
+  
+  BfrAddByte(payloadBfr, 9);
+  BfrAddByte(payloadBfr, botID);
+  BfrAddByte(payloadBfr, 2);
+  BfrAddByte(payloadBfr, 0x07);
+  BfrAddByte(payloadBfr, direction);
+  
+  BfrClose(payloadBfr);
+  OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+  assert(osErr == OS_ERR_NONE);
+  
+  payloadBfr = NULL;
     
     
 //    SendAck(payloadBfr, MSG_ADD);

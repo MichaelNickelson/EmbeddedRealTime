@@ -20,7 +20,6 @@ CHANGES
 #include "PktParser.h"
 #include "RobotControl.h"
 #include "SerIODriver.h"
-//#include "string.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
@@ -87,12 +86,6 @@ void RobotMgrTask(void *data){
     
     payload = (Payload *) payloadBfr->buffer;
     
-//    CPU_INT08U x = sizeof(Buffer);
-//    CPU_INT32U *p_z = (CPU_INT32U*) payload;
-//    CPU_INT32U x = p_z[0];
-    
-//    BfrReset(payloadBfr);
-    
     if(payload->dstAddr == MyAddress){ // If message is to me, generate a response
         switch(payload->msgType){
           case(MSG_RESET):
@@ -124,10 +117,14 @@ void RobotMgrTask(void *data){
         }
         payloadBfr = NULL;
     }else if(payload->dstAddr == 0){
-//    }else{
+      if(payload->payloadData.hereIAm.y == 17){
+        osErr = OS_ERR_NONE;
+      }
       OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
-                    payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+              payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
       OSSemPost(&messageWaiting[(payload->srcAddr) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
+//      OSQPost(&robotCtrlQueue[(payload->srcAddr) - FIRST_ROBOT],
+//              payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
     }
   payloadBfr = NULL;
   }
