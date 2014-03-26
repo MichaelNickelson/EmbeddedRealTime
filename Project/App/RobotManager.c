@@ -99,6 +99,7 @@ void RobotMgrTask(void *data){
             MoveRobot(payloadBfr);
             break;
           case(MSG_PATH):
+            FollowPath(payloadBfr);
             SendAck(MSG_PATH);
             break;
           case(MSG_LOOP):

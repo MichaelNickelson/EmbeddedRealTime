@@ -110,11 +110,9 @@ void RobotCtrlTask(void *data){
       case(MSG_MOVE):
         currentLocation = robots[rob->id - FIRST_ROBOT].location;
         destination = payload->payloadData.robot.destination[0];
-//        robots[rob->id - FIRST_ROBOT].destination = destination;
         
         while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
           BfrReset(payloadBfr);
-//          MoveRobot(payloadBfr, destination);
           direction = StepRobot(destination, currentLocation);
           
           BfrAddByte(payloadBfr, 9);
@@ -187,10 +185,7 @@ Move a robot to the given coordinate
 */
 void MoveRobot(Buffer *payloadBfr){
   OS_ERR osErr;
-  Coord_t nextLocation;
   Payload *payload = (Payload *) payloadBfr->buffer;
-  CPU_INT08U direction = 0;
-  CPU_INT08U botID = payload->payloadData.robot.robotAddress;
   
   CPU_INT08U id = payload->payloadData.robot.robotAddress;
   Coord_t destination = payload->payloadData.robot.destination[0];
@@ -213,52 +208,101 @@ void MoveRobot(Buffer *payloadBfr){
   }
 }
 
+/*--------------- F o l l o w P a t h ---------------
+Move a robot to a series of points
+*/
+void FollowPath(Buffer *payloadBfr){
+  OS_ERR osErr;
+  Payload *payload = (Payload *) payloadBfr->buffer;
+  CPU_INT08U numPoints = (payload->payloadLen - 5) / 2;
+  
+  CPU_INT08U id = payload->payloadData.robot.robotAddress;
+  Coord_t destination[LONGEST_PATH];
+  
+  for(CPU_INT08U j = 0;j<numPoints;j++){
+    destination[j] = payload->payloadData.robot.destination[j];
+  }
+  
+  if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){ // and a valid id
+    SendError(ERR_FOL_ADDRESS);
+    Free(payloadBfr);
+  }else if(!robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].exists){
+    SendError(ERR_FOL_NON_EXIST);
+    Free(payloadBfr);
+//  }else if(((destination.x > X_LIM) ||
+//            (destination.y > Y_LIM))){
+//    SendError(ERR_FOL_LOC);
+//    Free(payloadBfr);
+  }else{
+    SendAck(MSG_PATH);
+    
+    OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
+            payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+  }
+}
+
+/*--------------- S t e p R o b o t ---------------
+Determine which direction a robot should step in
+*/
 CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation){
   CPU_INT08S direction = 0;
+  Coord_t nextLocation;
   
   if(destination.x > currentLocation.x){
       if(destination.y < currentLocation.y){
         direction = SE;
-//        nextLocation.x = currentLocation.x + 1;
-//        nextLocation.y = currentLocation.y - 1;
+        nextLocation.x = currentLocation.x + 1;
+        nextLocation.y = currentLocation.y - 1;
       }
       else if(destination.y == currentLocation.y){
         direction = E;
-//        nextLocation.x = currentLocation.x + 1;
-//        nextLocation.y = currentLocation.y;
+        nextLocation.x = currentLocation.x + 1;
+        nextLocation.y = currentLocation.y;
       }
       else if(destination.y > currentLocation.y){
         direction = NE;
-//        nextLocation.x = currentLocation.x + 1;
-//        nextLocation.y = currentLocation.y + 1;
+        nextLocation.x = currentLocation.x + 1;
+        nextLocation.y = currentLocation.y + 1;
       }
     }else if(destination.x == currentLocation.x){
       if(destination.y < currentLocation.y){
         direction = S;
-//        nextLocation.x = currentLocation.x;
-//        nextLocation.y = currentLocation.y - 1;
+        nextLocation.x = currentLocation.x;
+        nextLocation.y = currentLocation.y - 1;
       }
       else if(destination.y > currentLocation.y){
         direction = N;
-//        nextLocation.x = currentLocation.x;
-//        nextLocation.y = currentLocation.y + 1;
+        nextLocation.x = currentLocation.x;
+        nextLocation.y = currentLocation.y + 1;
       }
     }else if(destination.x < currentLocation.x){
       if(destination.y < currentLocation.y){
         direction = SW;
-//        nextLocation.x = currentLocation.x - 1;
-//        nextLocation.y = currentLocation.y - 1;
+        nextLocation.x = currentLocation.x - 1;
+        nextLocation.y = currentLocation.y - 1;
       }
       else if(destination.y == currentLocation.y){
         direction = W;
-//        nextLocation.x = currentLocation.x - 1;
-//        nextLocation.y = currentLocation.y;
+        nextLocation.x = currentLocation.x - 1;
+        nextLocation.y = currentLocation.y;
       }
       else if(destination.y > currentLocation.y){
         direction = NW;
-//        nextLocation.x = currentLocation.x - 1;
-//        nextLocation.y = currentLocation.y + 1;
+        nextLocation.x = currentLocation.x - 1;
+        nextLocation.y = currentLocation.y + 1;
       }
     }
+  
+  for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
+    if((robots[j].exists) &&
+      (robots[j].location.x == nextLocation.x) &&
+      (robots[j].location.x == nextLocation.x)){
+          direction += 1;
+          if(direction > 8)
+            direction = 1;
+        }
+  }
+       
+       
   return direction;
 }
