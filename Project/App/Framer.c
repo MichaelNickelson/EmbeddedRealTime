@@ -108,8 +108,7 @@ Send acknowledgement message to Framer
 */
 void SendAck(CPU_INT08U type){
   OS_ERR osErr;
-  Buffer *ackBfr = Allocate();
-  
+  Buffer *ackBfr = Allocate();  
   
   // Send an Ack packet to the framer for transmission
   BfrAddByte(ackBfr, ACK_PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);

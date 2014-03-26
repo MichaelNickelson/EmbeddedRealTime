@@ -65,8 +65,9 @@ void CreateRobotCtrlTask(CPU_INT08U id){
   OSTaskCreate(&robotCtrlTCB[id-FIRST_ROBOT],
                "Robot controller task",
                RobotCtrlTask,
-               //NULL,  // make this take id?
+//               NULL,  // make this take id?
                &robots[id - FIRST_ROBOT],
+//               &id,
                RobotCtrlPrio,
                &robotCtrlStk[0],
                ROBOT_CTRL_STK_SIZE / HIGH_WATER_LIMIT,
@@ -89,6 +90,7 @@ void RobotCtrlTask(void *data){
   OS_ERR osErr;
   OS_MSG_SIZE msgSize;
   Robot_t *rob = (Robot_t *) data;
+  CPU_INT08S rID;
   Coord_t currentLocation;
   Coord_t destination;
   
@@ -107,22 +109,28 @@ void RobotCtrlTask(void *data){
     
     switch(payload->msgType){
       case(MSG_MOVE):
-        currentLocation = robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].location;
+        rID = payload->payloadData.robot.robotAddress;
+        currentLocation = robots[rID - FIRST_ROBOT].location;
         destination = payload->payloadData.robot.destination[0];
-        robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].destination = destination;
-        if((destination.x != currentLocation.x) ||
-              (destination.y != currentLocation.y))
+        robots[rID - FIRST_ROBOT].destination = destination;
+        
+        while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
+//        if((destination.x != currentLocation.x) || (destination.y != currentLocation.y))
           MoveRobot(payloadBfr);
-        OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-        assert(osErr == OS_ERR_NONE);
-        payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT],
-                   0,
-                   OS_OPT_PEND_BLOCKING,
-                   &msgSize,
-                   NULL,
-                   &osErr);
-        assert(osErr == OS_ERR_NONE);
-        payload = (Payload *) payloadBfr->buffer;
+          
+          OSSemPend(&messageWaiting[rID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+          assert(osErr == OS_ERR_NONE);
+          payloadBfr = OSQPend(&robotCtrlMbox[rID - FIRST_ROBOT],
+                     0,
+                     OS_OPT_PEND_BLOCKING,
+                     &msgSize,
+                     NULL,
+                     &osErr);
+          assert(osErr == OS_ERR_NONE);
+          payload = (Payload *) payloadBfr->buffer;
+          currentLocation = payload->payloadData.hereIAm;
+          robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
+        }
         break;
       case(MSG_HERE_I_AM):
         robots[payload->srcAddr - FIRST_ROBOT].location = payload->payloadData.hereIAm;
@@ -171,6 +179,7 @@ void AddRobot(Buffer *payloadBfr){
     robots[id-FIRST_ROBOT].exists = TRUE;
     robots[id-FIRST_ROBOT].location = location;
     robots[id-FIRST_ROBOT].id = id;
+    SendAck(MSG_ADD);
   }
 }
 
