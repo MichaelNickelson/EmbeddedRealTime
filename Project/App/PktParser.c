@@ -160,7 +160,6 @@ void DoStateP(StateVariables_t *myState){
 Read in the length of the packet. If it's too short, raise an error.
 */
 void DoStateL(StateVariables_t *myState){
-//  Buffer *payloadBfr = myState->payloadBfr;
   
   if(myState->c<ShortestPacket){
     ErrorTransition(myState, ERR_LEN);
@@ -178,14 +177,13 @@ appropriate.
 */
 void DoStateR(StateVariables_t *myState){
   OS_ERR osErr;
-//  Buffer *payloadBfr = myState->payloadBfr;
   
   if(--myState->payloadLen > 0){
     BfrAddByte(myState->payloadBfr, myState->c);
   }else{
     if(myState->checkSum){
       // Reset put buffer so ERR_CHECKSUM is in the right place
-      BfrReset(myState->payloadBfr);
+//      BfrReset(myState->payloadBfr);
       ErrorTransition(myState, ERR_CHECKSUM);
     }else{
       myState->parseState = P;
@@ -219,13 +217,10 @@ Called when an error is found to handle progression to error state.
 Close and swap buffers, reset state variables as needed
 */
 void ErrorTransition(StateVariables_t *myState, CPU_CHAR err){
-  Buffer *pBfr = myState->payloadBfr;
-  SendError(pBfr, (Error_t) err);
-
-//  SendError(myState->payloadBfr, (Error_t) err);
-  
-  myState->payloadBfr = NULL;
+  SendError((Error_t) err);
   
   myState->checkSum=0;
   myState->parseState = ER;
+  
+  myState->payloadBfr = NULL;
 }

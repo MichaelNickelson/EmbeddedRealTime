@@ -16,7 +16,7 @@ CHANGES
 
 extern OS_Q robotCtrlMbox[MAX_ROBOTS];
 extern OS_Q robotCtrlQueue[MAX_ROBOTS];
-//extern OS_SEM messageWaiting[MAX_ROBOTS];
+extern OS_SEM messageWaiting[MAX_ROBOTS];
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void CreateRobotCtrlTask(CPU_INT08U id);

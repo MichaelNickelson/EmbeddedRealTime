@@ -14,16 +14,17 @@ CHANGES
 #include "assert.h"
 #include "Constants.h"
 #include "Framer.h"
+#include "Memmgr.h"
 
 #define ERR_PAYLOAD_SIZE 5
 
 /*--------------- S e n d E r r o r ---------------
 Generate an error message and send it to the framer for transmission
 */
-void SendError(Buffer *eBfr, Error_t e){
+void SendError(Error_t e){
   OS_ERR osErr;
   
-  BfrReset(eBfr);
+  Buffer *eBfr = Allocate();
   
   BfrAddByte(eBfr, ERR_PAYLOAD_SIZE + PREAMBLE_LENGTH +1);
   BfrAddByte(eBfr, CtrlCtrAddress);

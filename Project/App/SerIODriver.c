@@ -22,7 +22,7 @@ CHANGES
 #define RXNEIE_MASK 0x0020
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
-#define NUM_BFRS 2
+#define NUM_BFRS 1
 #define SUSPEND_TIMEOUT 250
 
 /*----- Local Function prototypes -----*/
@@ -199,4 +199,13 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
   uart->CR1 = uart->CR1 | TXEIE_MASK;
   
   return retVal;
+}
+
+/*----------- BfrFlush() -----------
+Flush the output buffer.
+*/
+void BfrFlush(void){
+    ClosePutBfr(&oBfrPair);
+    if(BfrPairSwappable(&oBfrPair))
+      BfrPairSwap(&oBfrPair);
 }

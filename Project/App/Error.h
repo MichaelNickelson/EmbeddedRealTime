@@ -49,6 +49,6 @@ typedef enum {ERR_PREAMBLE_1 = 1,
 typedef enum {ASS_ADDRESS} Assert_t;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
-void SendError(Buffer *eBfr, Error_t e);
+void SendError(Error_t e);
 
 #endif

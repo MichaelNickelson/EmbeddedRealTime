@@ -16,10 +16,11 @@ CHANGES
 #include "Buffer.h"
 #include "Error.h"
 #include "Framer.h"
+#include "MemMgr.h"
 #include "PktParser.h"
 #include "RobotControl.h"
 #include "SerIODriver.h"
-#include "string.h"
+//#include "string.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
@@ -71,6 +72,7 @@ void RobotMgrTask(void *data){
   Payload *payload;
   OS_ERR osErr;
   OS_MSG_SIZE msgSize;
+//  OS_SEM messageWaiting[MAX_ROBOTS];
   
   for(;;){
     if(payloadBfr == NULL){
@@ -89,40 +91,46 @@ void RobotMgrTask(void *data){
 //    CPU_INT32U *p_z = (CPU_INT32U*) payload;
 //    CPU_INT32U x = p_z[0];
     
-    BfrReset(payloadBfr);
+//    BfrReset(payloadBfr);
     
     if(payload->dstAddr == MyAddress){ // If message is to me, generate a response
         switch(payload->msgType){
           case(MSG_RESET):
-            SendAck(payloadBfr, MSG_RESET);
+            SendAck(MSG_RESET);
             ParseReset();
             break;
           case(MSG_ADD):
             AddRobot(payloadBfr);
+            SendAck(MSG_ADD);
+//            Free(payloadBfr);
             break;
           case(MSG_MOVE):
             OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
                     payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-//            MoveRobot(payloadBfr);
-//            SendAck(payloadBfr, MSG_MOVE);
+//            OSSemPost(&messageWaiting[payload->payloadData.robot.robotAddress - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
+//            SendAck(MSG_MOVE);
+//            Free(payloadBfr);
             break;
           case(MSG_PATH):
-            SendAck(payloadBfr, MSG_PATH);
+            SendAck(MSG_PATH);
             break;
           case(MSG_LOOP):
-            SendAck(payloadBfr, MSG_LOOP);
+            SendAck(MSG_LOOP);
             break;
           case(MSG_STOP_LOOP):
-            SendAck(payloadBfr, MSG_STOP_LOOP);
+            SendAck(MSG_STOP_LOOP);
             break;
           default:  // Handle unknown message types
-            SendError(payloadBfr, ERR_MGR_TYPE);
+            SendError(ERR_MGR_TYPE);
             break;
         }
         payloadBfr = NULL;
     }else if(payload->dstAddr == 0){
-      OSQPost(&robotCtrlMbox[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
+//    }else{
+      OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
                     payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+      OSSemPost(&messageWaiting[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
+      payloadBfr = NULL;
     }
   }
 }

@@ -96,9 +96,7 @@ void Framer(void *data){
     }
     PutByte(cs);
     
-//    ClosePutBfr(&oBfrPair);
-//    if(BfrPairSwappable(&oBfrPair))
-//      BfrPairSwap(&oBfrPair);
+    BfrFlush();
     
     Free(payloadBfr);
     payloadBfr = NULL;
@@ -108,17 +106,19 @@ void Framer(void *data){
 /*--------------- S e n d A c k ---------------
 Send acknowledgement message to Framer
 */
-void SendAck(Buffer *payloadBfr, CPU_INT08U type){
+void SendAck(CPU_INT08U type){
   OS_ERR osErr;
+  Buffer *ackBfr = Allocate();
+  
   
   // Send an Ack packet to the framer for transmission
-  BfrAddByte(payloadBfr, ACK_PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
-  BfrAddByte(payloadBfr, CtrlCtrAddress);
-  BfrAddByte(payloadBfr, MyAddress);
-  BfrAddByte(payloadBfr, MSG_ACK);
-  BfrAddByte(payloadBfr, type);
+  BfrAddByte(ackBfr, ACK_PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
+  BfrAddByte(ackBfr, CtrlCtrAddress);
+  BfrAddByte(ackBfr, MyAddress);
+  BfrAddByte(ackBfr, MSG_ACK);
+  BfrAddByte(ackBfr, type);
   
-  BfrClose(payloadBfr);
-  OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+  BfrClose(ackBfr);
+  OSQPost(&framerQueue, ackBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
   assert(osErr == OS_ERR_NONE);
 }

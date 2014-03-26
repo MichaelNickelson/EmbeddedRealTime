@@ -22,6 +22,6 @@ extern OS_Q framerQueue; // The queue of parsed payloads to RobotManager
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void CreateFramerTask(void);
-void SendAck(Buffer *payloadBfr, CPU_INT08U type);
+void SendAck(CPU_INT08U type);
 
 #endif

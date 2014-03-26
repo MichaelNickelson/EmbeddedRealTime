@@ -79,6 +79,7 @@ typedef struct
     CPU_INT08U  direction;
     CPU_INT08U  ackType;
     CPU_INT08U  errorCode;
+    Coord_t hereIAm;
   } payloadData;
 } Payload;
 

@@ -29,5 +29,6 @@ void SerialISR(void);
 void InitSerIO();
 CPU_INT16S GetByte(void);
 CPU_INT16S PutByte(CPU_INT16S txChar);
+void BfrFlush(void);
 
 #endif

@@ -23,6 +23,7 @@ CHANGES
 
 typedef struct
 {
+  CPU_INT08U id;
   Coord_t location;
   CPU_BOOLEAN exists;
 } Robot_t;
@@ -50,8 +51,8 @@ Create/Initialize robot controller task
 void CreateRobotCtrlTask(CPU_INT08U id){
   OS_ERR osErr;
   
-//  OSSemCreate(&messageWaiting[id-FIRST_ROBOT], "Message waiting", 0, &osErr);
-//  assert(osErr == OS_ERR_NONE);
+  OSSemCreate(&messageWaiting[id-FIRST_ROBOT], "Message waiting", 0, &osErr);
+  assert(osErr == OS_ERR_NONE);
   
   OSQCreate(&robotCtrlMbox[id-FIRST_ROBOT], "Robot Mailbox", 1, &osErr);
   assert(osErr == OS_ERR_NONE);
@@ -64,7 +65,7 @@ void CreateRobotCtrlTask(CPU_INT08U id){
                "Robot controller task",
                RobotCtrlTask,
                //NULL,  // make this take id?
-               &id,
+               &robots[id - FIRST_ROBOT],
                RobotCtrlPrio,
                &robotCtrlStk[0],
                ROBOT_CTRL_STK_SIZE / HIGH_WATER_LIMIT,
@@ -86,18 +87,13 @@ void RobotCtrlTask(void *data){
   Payload *payload;
   OS_ERR osErr;
   OS_MSG_SIZE msgSize;
-  
-  CPU_INT08U *p_id = data;
-  CPU_INT08U id = *p_id;
+  CPU_INT08U botID = 0;
+  Robot_t *rob = (Robot_t *) data;
   
   for(;;){
-    
-//    OSSemPend(&messageWaiting[id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-//    assert(osErr == OS_ERR_NONE);
-    
+    rob = (Robot_t *) data;
     if(payloadBfr == NULL){
-//      payloadBfr = OSQPend(&robotCtrlQueue[*p_id],
-      payloadBfr = OSQPend(&robotCtrlQueue[*p_id - FIRST_ROBOT],
+      payloadBfr = OSQPend(&robotCtrlQueue[rob->id - FIRST_ROBOT],
                    0,
                    OS_OPT_PEND_BLOCKING,
                    &msgSize,
@@ -107,22 +103,31 @@ void RobotCtrlTask(void *data){
     }
     
     payload = (Payload *) payloadBfr->buffer;
-    
-//    BfrReset(payloadBfr);
     Coord_t destination = payload->payloadData.robot.destination[0];
     Coord_t currentLocation = robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].location;
     
     switch(payload->msgType){
       case(MSG_MOVE):
-        while((destination.x != currentLocation.x) &&
+        SendAck(MSG_MOVE);
+        botID = payload->payloadData.robot.robotAddress;
+        while((destination.x != currentLocation.x) ||
               (destination.y != currentLocation.y)){
           MoveRobot(payloadBfr);
-          OSQPend(&robotCtrlMbox[payload->payloadData.robot.robotAddress - FIRST_ROBOT],
-                   0,
-                   OS_OPT_PEND_BLOCKING,
-                   &msgSize,
-                   NULL,
-                   &osErr);
+//          payloadBfr = NULL;
+          
+          OSSemPend(&messageWaiting[botID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+          payloadBfr = OSQPend(&robotCtrlMbox[botID - FIRST_ROBOT],
+                       0,
+                       OS_OPT_PEND_BLOCKING,
+                       &msgSize,
+                       NULL,
+                       &osErr);
+          payload = (Payload *) payloadBfr->buffer;
+          currentLocation.x = payload->payloadData.hereIAm.x;
+          currentLocation.y = payload->payloadData.hereIAm.y;
+          robots[payload->payloadData.robot.robotAddress].location = currentLocation;
+//          OSSemPend(&messageWaiting[id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+          assert(osErr == OS_ERR_NONE);
               }
         break;
     }
@@ -141,24 +146,25 @@ void AddRobot(Buffer *payloadBfr){
   Coord_t location = payload->payloadData.robot.destination[0];
   
   if(robots[id-FIRST_ROBOT].exists){ // Make sure the robot doesn't already exist
-    SendError(payloadBfr, ERR_ADD_EXISTS);
+    SendError(ERR_ADD_EXISTS);
   }else if((location.x > X_LIM) ||
            (location.y > Y_LIM)){ // Make sure you've been given a valid starting point
-    SendError(payloadBfr, ERR_ADD_LOC);
+    SendError(ERR_ADD_LOC);
   }else if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){ // and a valid id
-    SendError(payloadBfr, ERR_ADD_ADDRESS);
+    SendError(ERR_ADD_ADDRESS);
   }else{
     for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
       // And make sure the starting point isn't already taken by someone else
       if((location.x == robots[j].location.x) && (location.y == robots[j].location.y)){
-        SendError(payloadBfr, ERR_ADD_OCCUPIED);
+        SendError(ERR_ADD_OCCUPIED);
         return;
       }
     }
+    CreateRobotCtrlTask(id);
+    Free(payloadBfr);
     robots[id-FIRST_ROBOT].exists = TRUE;
     robots[id-FIRST_ROBOT].location = location;
-    CreateRobotCtrlTask(id);
-    SendAck(payloadBfr, MSG_ADD);
+    robots[id-FIRST_ROBOT].id = id;
   }
 }
 
@@ -179,23 +185,23 @@ void MoveRobot(Buffer *payloadBfr){
 //          (destination.y != currentLocation.y)){
             if(destination.x > currentLocation.x){
               if(destination.y < currentLocation.y)
-                direction = NW;
+                direction = SE;
               else if(destination.y == currentLocation.y)
-                direction = N;
+                direction = E;
               else if(destination.y > currentLocation.y)
                 direction = NE;
             }else if(destination.x == currentLocation.x){
               if(destination.y < currentLocation.y)
-                direction = W;
+                direction = S;
               else if(destination.y > currentLocation.y)
-                direction = E;
+                direction = N;
             }else if(destination.x < currentLocation.x){
               if(destination.y < currentLocation.y)
                 direction = SW;
               else if(destination.y == currentLocation.y)
-                direction = S;
+                direction = W;
               else if(destination.y > currentLocation.y)
-                direction = SE;
+                direction = NW;
             }
     BfrAddByte(payloadBfr, 9);
     BfrAddByte(payloadBfr, payload->payloadData.robot.robotAddress);
@@ -207,7 +213,7 @@ void MoveRobot(Buffer *payloadBfr){
     OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
     assert(osErr == OS_ERR_NONE);
     
-    
+    payloadBfr = NULL;
     
     
 //    SendAck(payloadBfr, MSG_ADD);
