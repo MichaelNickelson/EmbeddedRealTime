@@ -25,14 +25,14 @@ typedef struct
 {
   CPU_INT08U id;
   Coord_t location;
-//  Coord_t destination;
   CPU_BOOLEAN exists;
 } Robot_t;
 
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotCtrlTask(void *data);
-void MoveRobot(Buffer *payloadBfr, Coord_t destination);
+//void MoveRobot(Buffer *payloadBfr, Coord_t destination);
+CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 // Task TCB and stack
@@ -44,7 +44,7 @@ OS_Q robotCtrlQueue[MAX_ROBOTS];
 OS_SEM messageWaiting[MAX_ROBOTS];
 
 // Array of robots for collision and existence detection.
-static Robot_t robots[MAX_ROBOTS];
+Robot_t robots[MAX_ROBOTS];
 
 /*--------------- C r e a t e R o b o t C t r l T a s k ---------------
 Create/Initialize robot controller task
@@ -65,7 +65,6 @@ void CreateRobotCtrlTask(CPU_INT08U id){
   OSTaskCreate(&robotCtrlTCB[id-FIRST_ROBOT],
                "Robot controller task",
                &RobotCtrlTask,
-//               NULL,  // make this take id?
                &robots[id - FIRST_ROBOT],
 //               &id,
                RobotCtrlPrio,
@@ -91,6 +90,7 @@ void RobotCtrlTask(void *data){
   OS_MSG_SIZE msgSize;
   Coord_t currentLocation;
   Coord_t destination;
+  CPU_INT08U direction = 0;
   Robot_t *rob = (Robot_t *) data;
   
   for(;;){
@@ -113,7 +113,19 @@ void RobotCtrlTask(void *data){
 //        robots[rob->id - FIRST_ROBOT].destination = destination;
         
         while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
-          MoveRobot(payloadBfr, destination);
+          BfrReset(payloadBfr);
+//          MoveRobot(payloadBfr, destination);
+          direction = StepRobot(destination, currentLocation);
+          
+          BfrAddByte(payloadBfr, 9);
+          BfrAddByte(payloadBfr, rob->id);
+          BfrAddByte(payloadBfr, 2);
+          BfrAddByte(payloadBfr, 0x07);
+          BfrAddByte(payloadBfr, direction);
+    
+          BfrClose(payloadBfr);
+          OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+          assert(osErr == OS_ERR_NONE);
           
           OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
           assert(osErr == OS_ERR_NONE);
@@ -173,91 +185,80 @@ void AddRobot(Buffer *payloadBfr){
 /*--------------- M o v e R o b o t ---------------
 Move a robot to the given coordinate
 */
-void MoveRobot(Buffer *payloadBfr, Coord_t destination){
+void MoveRobot(Buffer *payloadBfr){
   OS_ERR osErr;
   Coord_t nextLocation;
-  
   Payload *payload = (Payload *) payloadBfr->buffer;
   CPU_INT08U direction = 0;
   CPU_INT08U botID = payload->payloadData.robot.robotAddress;
   
-  Coord_t currentLocation = robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].location;
+  CPU_INT08U id = payload->payloadData.robot.robotAddress;
+  Coord_t destination = payload->payloadData.robot.destination[0];
   
-  if(payload->msgType==MSG_HERE_I_AM){
-     currentLocation.x = payload->payloadData.hereIAm.x;
-     currentLocation.y = payload->payloadData.hereIAm.y;
-     botID = payload->srcAddr;
+  if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){ // and a valid id
+    SendError(ERR_MOVE_ADDRESS);
+    Free(payloadBfr);
+  }else if(!robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].exists){
+    SendError(ERR_MOVE_NON_EXIST);
+    Free(payloadBfr);
+  }else if(((destination.x > X_LIM) ||
+            (destination.y > Y_LIM))){
+    SendError(ERR_MOVE_LOC);
+    Free(payloadBfr);
+  }else{
+    SendAck(MSG_MOVE);
+    
+    OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
+            payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
   }
+}
+
+CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation){
+  CPU_INT08S direction = 0;
   
-  BfrReset(payloadBfr);
   if(destination.x > currentLocation.x){
-    if(destination.y < currentLocation.y){
-      direction = SE;
-      nextLocation.x = currentLocation.x + 1;
-      nextLocation.y = currentLocation.y - 1;
-    }
-    else if(destination.y == currentLocation.y){
-      direction = E;
-      nextLocation.x = currentLocation.x + 1;
-      nextLocation.y = currentLocation.y;
-    }
-    else if(destination.y > currentLocation.y){
-      direction = NE;
-      nextLocation.x = currentLocation.x + 1;
-      nextLocation.y = currentLocation.y + 1;
-    }
-  }else if(destination.x == currentLocation.x){
-    if(destination.y < currentLocation.y){
-      direction = S;
-      nextLocation.x = currentLocation.x;
-      nextLocation.y = currentLocation.y - 1;
-    }
-    else if(destination.y > currentLocation.y){
-      direction = N;
-      nextLocation.x = currentLocation.x;
-      nextLocation.y = currentLocation.y + 1;
-    }
-  }else if(destination.x < currentLocation.x){
-    if(destination.y < currentLocation.y){
-      direction = SW;
-      nextLocation.x = currentLocation.x - 1;
-      nextLocation.y = currentLocation.y - 1;
-    }
-    else if(destination.y == currentLocation.y){
-      direction = W;
-      nextLocation.x = currentLocation.x - 1;
-      nextLocation.y = currentLocation.y;
-    }
-    else if(destination.y > currentLocation.y){
-      direction = NW;
-      nextLocation.x = currentLocation.x - 1;
-      nextLocation.y = currentLocation.y + 1;
-    }
-  }
-  
-  for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
-      if((nextLocation.x == robots[j].location.x) &&
-         (nextLocation.y == robots[j].location.y) &&
-          robots[j].exists){
-        direction++;
+      if(destination.y < currentLocation.y){
+        direction = SE;
+//        nextLocation.x = currentLocation.x + 1;
+//        nextLocation.y = currentLocation.y - 1;
+      }
+      else if(destination.y == currentLocation.y){
+        direction = E;
+//        nextLocation.x = currentLocation.x + 1;
+//        nextLocation.y = currentLocation.y;
+      }
+      else if(destination.y > currentLocation.y){
+        direction = NE;
+//        nextLocation.x = currentLocation.x + 1;
+//        nextLocation.y = currentLocation.y + 1;
+      }
+    }else if(destination.x == currentLocation.x){
+      if(destination.y < currentLocation.y){
+        direction = S;
+//        nextLocation.x = currentLocation.x;
+//        nextLocation.y = currentLocation.y - 1;
+      }
+      else if(destination.y > currentLocation.y){
+        direction = N;
+//        nextLocation.x = currentLocation.x;
+//        nextLocation.y = currentLocation.y + 1;
+      }
+    }else if(destination.x < currentLocation.x){
+      if(destination.y < currentLocation.y){
+        direction = SW;
+//        nextLocation.x = currentLocation.x - 1;
+//        nextLocation.y = currentLocation.y - 1;
+      }
+      else if(destination.y == currentLocation.y){
+        direction = W;
+//        nextLocation.x = currentLocation.x - 1;
+//        nextLocation.y = currentLocation.y;
+      }
+      else if(destination.y > currentLocation.y){
+        direction = NW;
+//        nextLocation.x = currentLocation.x - 1;
+//        nextLocation.y = currentLocation.y + 1;
       }
     }
-  if(direction>8)
-    direction = 1;
-  
-  BfrAddByte(payloadBfr, 9);
-  BfrAddByte(payloadBfr, botID);
-  BfrAddByte(payloadBfr, 2);
-  BfrAddByte(payloadBfr, 0x07);
-  BfrAddByte(payloadBfr, direction);
-  
-  BfrClose(payloadBfr);
-  OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-  assert(osErr == OS_ERR_NONE);
-  
-  payloadBfr = NULL;
-    
-    
-//    SendAck(payloadBfr, MSG_ADD);
-//  }
+  return direction;
 }

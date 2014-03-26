@@ -96,9 +96,7 @@ void RobotMgrTask(void *data){
             AddRobot(payloadBfr);
             break;
           case(MSG_MOVE):
-            OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
-                    payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-            SendAck(MSG_MOVE);
+            MoveRobot(payloadBfr);
             break;
           case(MSG_PATH):
             SendAck(MSG_PATH);
