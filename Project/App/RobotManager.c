@@ -118,11 +118,11 @@ void RobotMgrTask(void *data){
       if(payload->payloadData.hereIAm.y == 17){
         osErr = OS_ERR_NONE;
       }
-//      OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
-//              payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-//      OSSemPost(&messageWaiting[(payload->srcAddr) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
-      OSQPost(&robotCtrlQueue[(payload->srcAddr) - FIRST_ROBOT],
+      OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
               payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+      OSSemPost(&messageWaiting[(payload->srcAddr) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
+//      OSQPost(&robotCtrlQueue[(payload->srcAddr) - FIRST_ROBOT],
+//              payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
     }
   payloadBfr = NULL;
   }

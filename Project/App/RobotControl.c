@@ -25,19 +25,19 @@ typedef struct
 {
   CPU_INT08U id;
   Coord_t location;
-  Coord_t destination;
+//  Coord_t destination;
   CPU_BOOLEAN exists;
 } Robot_t;
 
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotCtrlTask(void *data);
-void MoveRobot(Buffer *payloadBfr);
+void MoveRobot(Buffer *payloadBfr, Coord_t destination);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 // Task TCB and stack
 static OS_TCB robotCtrlTCB[MAX_ROBOTS];
-static CPU_STK robotCtrlStk[ROBOT_CTRL_STK_SIZE];
+static CPU_STK robotCtrlStk[MAX_ROBOTS][ROBOT_CTRL_STK_SIZE];
 OS_Q robotCtrlMbox[MAX_ROBOTS];
 OS_Q robotCtrlQueue[MAX_ROBOTS];
 
@@ -64,12 +64,12 @@ void CreateRobotCtrlTask(CPU_INT08U id){
   // Create the payload task
   OSTaskCreate(&robotCtrlTCB[id-FIRST_ROBOT],
                "Robot controller task",
-               RobotCtrlTask,
+               &RobotCtrlTask,
 //               NULL,  // make this take id?
                &robots[id - FIRST_ROBOT],
 //               &id,
                RobotCtrlPrio,
-               &robotCtrlStk[0],
+               &robotCtrlStk[id - FIRST_ROBOT][0],
                ROBOT_CTRL_STK_SIZE / HIGH_WATER_LIMIT,
                ROBOT_CTRL_STK_SIZE,
                0,
@@ -85,14 +85,13 @@ void CreateRobotCtrlTask(CPU_INT08U id){
 Control a robot by generating step commands
 */
 void RobotCtrlTask(void *data){
+  OS_ERR osErr;
   Buffer *payloadBfr = NULL;
   Payload *payload;
-  OS_ERR osErr;
   OS_MSG_SIZE msgSize;
-  Robot_t *rob = (Robot_t *) data;
-  CPU_INT08S rID;
   Coord_t currentLocation;
   Coord_t destination;
+  Robot_t *rob = (Robot_t *) data;
   
   for(;;){
     if(payloadBfr == NULL){
@@ -109,38 +108,26 @@ void RobotCtrlTask(void *data){
     
     switch(payload->msgType){
       case(MSG_MOVE):
-        rID = payload->payloadData.robot.robotAddress;
-        currentLocation = robots[rID - FIRST_ROBOT].location;
+        currentLocation = robots[rob->id - FIRST_ROBOT].location;
         destination = payload->payloadData.robot.destination[0];
-        robots[rID - FIRST_ROBOT].destination = destination;
+//        robots[rob->id - FIRST_ROBOT].destination = destination;
         
-//        while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
-        if((destination.x != currentLocation.x) || (destination.y != currentLocation.y)){
-          MoveRobot(payloadBfr);
+        while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
+          MoveRobot(payloadBfr, destination);
           
-//          OSSemPend(&messageWaiting[rID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-//          assert(osErr == OS_ERR_NONE);
-//          payloadBfr = OSQPend(&robotCtrlMbox[rID - FIRST_ROBOT],
-//                     0,
-//                     OS_OPT_PEND_BLOCKING,
-//                     &msgSize,
-//                     NULL,
-//                     &osErr);
-//          assert(osErr == OS_ERR_NONE);
-//          payload = (Payload *) payloadBfr->buffer;
-//          currentLocation = payload->payloadData.hereIAm;
-//          robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
+          OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+          assert(osErr == OS_ERR_NONE);
+          payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT],
+                     0,
+                     OS_OPT_PEND_BLOCKING,
+                     &msgSize,
+                     NULL,
+                     &osErr);
+          assert(osErr == OS_ERR_NONE);
+          payload = (Payload *) payloadBfr->buffer;
+          currentLocation = payload->payloadData.hereIAm;
+          robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
         }
-        break;
-      case(MSG_HERE_I_AM):
-        robots[payload->srcAddr - FIRST_ROBOT].location = payload->payloadData.hereIAm;
-        currentLocation = payload->payloadData.hereIAm;
-        destination = robots[payload->srcAddr-FIRST_ROBOT].destination;
-        
-        if((destination.x != currentLocation.x) ||
-           (destination.y != currentLocation.y)){
-             MoveRobot(payloadBfr);
-             }
         break;
     }
     
@@ -186,7 +173,7 @@ void AddRobot(Buffer *payloadBfr){
 /*--------------- M o v e R o b o t ---------------
 Move a robot to the given coordinate
 */
-void MoveRobot(Buffer *payloadBfr){
+void MoveRobot(Buffer *payloadBfr, Coord_t destination){
   OS_ERR osErr;
   Coord_t nextLocation;
   
@@ -195,13 +182,10 @@ void MoveRobot(Buffer *payloadBfr){
   CPU_INT08U botID = payload->payloadData.robot.robotAddress;
   
   Coord_t currentLocation = robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].location;
-  Coord_t destination = payload->payloadData.robot.destination[0];
   
   if(payload->msgType==MSG_HERE_I_AM){
      currentLocation.x = payload->payloadData.hereIAm.x;
      currentLocation.y = payload->payloadData.hereIAm.y;
-     destination.x = robots[payload->srcAddr-FIRST_ROBOT].destination.x;
-     destination.y = robots[payload->srcAddr-FIRST_ROBOT].destination.y;
      botID = payload->srcAddr;
   }
   
