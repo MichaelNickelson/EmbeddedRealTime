@@ -114,22 +114,22 @@ void RobotCtrlTask(void *data){
         destination = payload->payloadData.robot.destination[0];
         robots[rID - FIRST_ROBOT].destination = destination;
         
-        while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
-//        if((destination.x != currentLocation.x) || (destination.y != currentLocation.y))
+//        while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
+        if((destination.x != currentLocation.x) || (destination.y != currentLocation.y)){
           MoveRobot(payloadBfr);
           
-          OSSemPend(&messageWaiting[rID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-          assert(osErr == OS_ERR_NONE);
-          payloadBfr = OSQPend(&robotCtrlMbox[rID - FIRST_ROBOT],
-                     0,
-                     OS_OPT_PEND_BLOCKING,
-                     &msgSize,
-                     NULL,
-                     &osErr);
-          assert(osErr == OS_ERR_NONE);
-          payload = (Payload *) payloadBfr->buffer;
-          currentLocation = payload->payloadData.hereIAm;
-          robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
+//          OSSemPend(&messageWaiting[rID - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+//          assert(osErr == OS_ERR_NONE);
+//          payloadBfr = OSQPend(&robotCtrlMbox[rID - FIRST_ROBOT],
+//                     0,
+//                     OS_OPT_PEND_BLOCKING,
+//                     &msgSize,
+//                     NULL,
+//                     &osErr);
+//          assert(osErr == OS_ERR_NONE);
+//          payload = (Payload *) payloadBfr->buffer;
+//          currentLocation = payload->payloadData.hereIAm;
+//          robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
         }
         break;
       case(MSG_HERE_I_AM):
