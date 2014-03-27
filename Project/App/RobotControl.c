@@ -20,6 +20,8 @@ CHANGES
 
 #define RobotCtrlPrio 4
 #define ROBOT_CTRL_STK_SIZE 128
+#define PAYLOAD_OVERHEAD 5
+#define DIMENSIONS 2
 
 typedef struct
 {
@@ -33,6 +35,7 @@ typedef struct
 void RobotCtrlTask(void *data);
 //void MoveRobot(Buffer *payloadBfr, Coord_t destination);
 CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation);
+CPU_INT08U CheckSafety(CPU_INT08U direction, Coord_t nextLocation);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 // Task TCB and stack
@@ -85,14 +88,15 @@ Control a robot by generating step commands
 */
 void RobotCtrlTask(void *data){
   OS_ERR osErr;
+  CPU_BOOLEAN looping = FALSE;
   Buffer *payloadBfr = NULL;
-  Payload *payload;
   OS_MSG_SIZE msgSize;
   Coord_t currentLocation;
   Coord_t destination;
   CPU_INT08U direction = 0;
   Robot_t *rob = (Robot_t *) data;
-  
+  Coord_t pathPoints[LONGEST_PATH];
+
   for(;;){
     if(payloadBfr == NULL){
       payloadBfr = OSQPend(&robotCtrlQueue[rob->id - FIRST_ROBOT],
@@ -104,29 +108,34 @@ void RobotCtrlTask(void *data){
     assert(osErr == OS_ERR_NONE);
     }
     
-    payload = (Payload *) payloadBfr->buffer;
+    Payload *payload = (Payload *) payloadBfr->buffer;
+    SendAck(payload->msgType);
+    looping = payload->msgType == MSG_LOOP ? TRUE : FALSE;
     
-    switch(payload->msgType){
-      case(MSG_MOVE):
-        currentLocation = robots[rob->id - FIRST_ROBOT].location;
-        destination = payload->payloadData.robot.destination[0];
-        
-        while((currentLocation.x != destination.x) || (currentLocation.y != destination.y)){
+    CPU_INT08U numPoints = (payload->payloadLen - PAYLOAD_OVERHEAD)/DIMENSIONS;
+
+    for(CPU_INT08U j=0;j<numPoints;j++)
+      pathPoints[j] = payload->payloadData.robot.destination[j];
+    do{    
+      currentLocation = robots[rob->id - FIRST_ROBOT].location;
+      for(CPU_INT08U j = 0;j<numPoints;j++){
+        destination = pathPoints[j];
+        do{
           BfrReset(payloadBfr);
           direction = StepRobot(destination, currentLocation);
-          
           BfrAddByte(payloadBfr, 9);
           BfrAddByte(payloadBfr, rob->id);
-          BfrAddByte(payloadBfr, 2);
-          BfrAddByte(payloadBfr, 0x07);
+          BfrAddByte(payloadBfr, MyAddress);
+          BfrAddByte(payloadBfr, MSG_STEP);
           BfrAddByte(payloadBfr, direction);
-    
           BfrClose(payloadBfr);
+          
           OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
           assert(osErr == OS_ERR_NONE);
           
           OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
           assert(osErr == OS_ERR_NONE);
+          
           payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT],
                      0,
                      OS_OPT_PEND_BLOCKING,
@@ -135,12 +144,15 @@ void RobotCtrlTask(void *data){
                      &osErr);
           assert(osErr == OS_ERR_NONE);
           payload = (Payload *) payloadBfr->buffer;
-          currentLocation = payload->payloadData.hereIAm;
-          robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
-        }
-        break;
-    }
-    
+          if(payload->msgType == MSG_STOP){
+            looping = FALSE;
+          }else{
+            currentLocation = payload->payloadData.hereIAm;
+            robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
+          }
+        }while((currentLocation.x != destination.x) || (currentLocation.y != destination.y));
+      }
+    }while(looping);
     payloadBfr = NULL;
   }
 }
@@ -186,55 +198,31 @@ Move a robot to the given coordinate
 void MoveRobot(Buffer *payloadBfr){
   OS_ERR osErr;
   Payload *payload = (Payload *) payloadBfr->buffer;
-  
-  CPU_INT08U id = payload->payloadData.robot.robotAddress;
-  Coord_t destination = payload->payloadData.robot.destination[0];
-  
-  if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){ // and a valid id
-    SendError(ERR_MOVE_ADDRESS);
-    Free(payloadBfr);
-  }else if(!robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].exists){
-    SendError(ERR_MOVE_NON_EXIST);
-    Free(payloadBfr);
-  }else if(((destination.x > X_LIM) ||
-            (destination.y > Y_LIM))){
-    SendError(ERR_MOVE_LOC);
-    Free(payloadBfr);
-  }else{
-    SendAck(MSG_MOVE);
-    
-    OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
-            payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-  }
-}
-
-/*--------------- F o l l o w P a t h ---------------
-Move a robot to a series of points
-*/
-void FollowPath(Buffer *payloadBfr){
-  OS_ERR osErr;
-  Payload *payload = (Payload *) payloadBfr->buffer;
-  CPU_INT08U numPoints = (payload->payloadLen - 5) / 2;
+  CPU_INT08U numPoints = (payload->payloadLen - PAYLOAD_OVERHEAD)/DIMENSIONS;
   
   CPU_INT08U id = payload->payloadData.robot.robotAddress;
   Coord_t destination[LONGEST_PATH];
-  
-  for(CPU_INT08U j = 0;j<numPoints;j++){
+
+  for(CPU_INT08U j=0;j<numPoints;j++){
     destination[j] = payload->payloadData.robot.destination[j];
   }
   
-  if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){ // and a valid id
-    SendError(ERR_FOL_ADDRESS);
+  if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){
+    SendError((Error_t) (ERROR_MULTIPLIER*payload->msgType + ROBOT_ADDRESS));
     Free(payloadBfr);
+    return;
   }else if(!robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].exists){
-    SendError(ERR_FOL_NON_EXIST);
+    SendError((Error_t) (ERROR_MULTIPLIER*payload->msgType + NON_EXISTENT_ROBOT));
     Free(payloadBfr);
-//  }else if(((destination.x > X_LIM) ||
-//            (destination.y > Y_LIM))){
-//    SendError(ERR_FOL_LOC);
-//    Free(payloadBfr);
+    return;
   }else{
-    SendAck(MSG_PATH);
+    for(CPU_INT08U j=0;j<numPoints;j++){
+      if((destination[j].x > X_LIM) || (destination[j].y > Y_LIM)){
+        SendError((Error_t) (ERROR_MULTIPLIER*payload->msgType + BAD_LOCATION));
+        Free(payloadBfr);
+        return;
+      }
+    }
     
     OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
             payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
@@ -245,64 +233,66 @@ void FollowPath(Buffer *payloadBfr){
 Determine which direction a robot should step in
 */
 CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation){
-  CPU_INT08S direction = 0;
-  Coord_t nextLocation;
+  CPU_INT08S direction;
   
-  if(destination.x > currentLocation.x){
-      if(destination.y < currentLocation.y){
-        direction = SE;
-        nextLocation.x = currentLocation.x + 1;
-        nextLocation.y = currentLocation.y - 1;
-      }
-      else if(destination.y == currentLocation.y){
-        direction = E;
-        nextLocation.x = currentLocation.x + 1;
-        nextLocation.y = currentLocation.y;
-      }
-      else if(destination.y > currentLocation.y){
-        direction = NE;
-        nextLocation.x = currentLocation.x + 1;
-        nextLocation.y = currentLocation.y + 1;
-      }
-    }else if(destination.x == currentLocation.x){
-      if(destination.y < currentLocation.y){
-        direction = S;
-        nextLocation.x = currentLocation.x;
-        nextLocation.y = currentLocation.y - 1;
-      }
-      else if(destination.y > currentLocation.y){
-        direction = N;
-        nextLocation.x = currentLocation.x;
-        nextLocation.y = currentLocation.y + 1;
-      }
-    }else if(destination.x < currentLocation.x){
-      if(destination.y < currentLocation.y){
-        direction = SW;
-        nextLocation.x = currentLocation.x - 1;
-        nextLocation.y = currentLocation.y - 1;
-      }
-      else if(destination.y == currentLocation.y){
-        direction = W;
-        nextLocation.x = currentLocation.x - 1;
-        nextLocation.y = currentLocation.y;
-      }
-      else if(destination.y > currentLocation.y){
-        direction = NW;
-        nextLocation.x = currentLocation.x - 1;
-        nextLocation.y = currentLocation.y + 1;
+  if((destination.x == currentLocation.x) && (destination.y > currentLocation.y))
+     direction = N;
+  else if((destination.x > currentLocation.x) && (destination.y > currentLocation.y))
+    direction = NE;
+  else if((destination.x > currentLocation.x) && (destination.y == currentLocation.y))
+    direction = E;
+  else if((destination.x > currentLocation.x) && (destination.y < currentLocation.y))
+    direction = SE;
+  else if((destination.x == currentLocation.x) && (destination.y < currentLocation.y))
+    direction = S;
+  else if((destination.x < currentLocation.x) && (destination.y < currentLocation.y))
+    direction = SW;
+  else if((destination.x < currentLocation.x) && (destination.y == currentLocation.y))
+    direction = W;
+  else if((destination.x < currentLocation.x) && (destination.y > currentLocation.y))
+    direction = NW;
+  else
+    direction = NoStep;
+  
+  if(direction != NoStep)
+    direction = CheckSafety(direction, currentLocation);
+  return direction;
+}
+
+CPU_INT08U CheckSafety(CPU_INT08U direction, Coord_t currentLocation){
+  CPU_BOOLEAN dirSafe;
+  CPU_INT08S rotation = 1;
+  CPU_INT08U checkedDirections = 0;
+  CPU_INT08S oDir = direction;
+  CPU_INT08U change[9][2] = {{0,0},{0,1},{1,1},{1,0},{1,-1},{0,-1},{-1,-1},{-1,0},{-1,1}};
+  Coord_t nextLocation;
+ 
+  do{
+    dirSafe = TRUE;
+    
+    nextLocation.x = currentLocation.x + change[direction][0];
+    nextLocation.y = currentLocation.y + change[direction][1];
+    for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
+      if((robots[j].exists) &&
+         (robots[j].location.x == nextLocation.x) &&
+         (robots[j].location.y == nextLocation.y)){
+        dirSafe = FALSE;
+        break;
       }
     }
-  
-  for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
-    if((robots[j].exists) &&
-      (robots[j].location.x == nextLocation.x) &&
-      (robots[j].location.x == nextLocation.x)){
-          direction += 1;
-          if(direction > 8)
-            direction = 1;
-        }
-  }
-       
-       
+    if((nextLocation.x > X_LIM) || (nextLocation.y > Y_LIM))
+      dirSafe = FALSE;
+      
+    if(!dirSafe){
+      direction += rotation;
+      direction = direction < 9 ? direction : 8;
+      checkedDirections += 1;
+    }
+    if(checkedDirections > 3){
+      checkedDirections = 0;
+      rotation = -rotation;
+      direction = oDir;
+    }
+  }while(!dirSafe);
   return direction;
 }

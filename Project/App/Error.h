@@ -16,6 +16,12 @@ CHANGES
 
 #include "Buffer.h"
 
+#define ERROR_MULTIPLIER 10
+
+#define ROBOT_ADDRESS 1
+#define NON_EXISTENT_ROBOT 2
+#define BAD_LOCATION 3
+
 /* Error types used when calling error display functions */
 typedef enum {ERR_PREAMBLE_1 = 1,
               ERR_PREAMBLE_2 = 2,

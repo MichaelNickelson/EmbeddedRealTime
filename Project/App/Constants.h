@@ -36,9 +36,9 @@ CHANGES
 #define MSG_MOVE 2
 #define MSG_PATH 3
 #define MSG_LOOP 4
-#define MSG_STOP_LOOP 5
+#define MSG_STOP 5
 
-#define MSG_STEP 7
+#define MSG_STEP 0x07
 #define MSG_HERE_I_AM 9
 
 #define MSG_ACK 0x0A

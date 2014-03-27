@@ -96,17 +96,15 @@ void RobotMgrTask(void *data){
             AddRobot(payloadBfr);
             break;
           case(MSG_MOVE):
+          case(MSG_PATH):
+          case(MSG_LOOP):
             MoveRobot(payloadBfr);
             break;
-          case(MSG_PATH):
-            FollowPath(payloadBfr);
-            SendAck(MSG_PATH);
-            break;
-          case(MSG_LOOP):
-            SendAck(MSG_LOOP);
-            break;
-          case(MSG_STOP_LOOP):
-            SendAck(MSG_STOP_LOOP);
+          case(MSG_STOP):
+            OSQPost(&robotCtrlMbox[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
+              payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+            OSSemPost(&messageWaiting[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
+//            SendAck(MSG_STOP_LOOP);
             break;
           default:  // Handle unknown message types
             SendError(ERR_MGR_TYPE);
@@ -120,8 +118,6 @@ void RobotMgrTask(void *data){
       OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
               payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
       OSSemPost(&messageWaiting[(payload->srcAddr) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
-//      OSQPost(&robotCtrlQueue[(payload->srcAddr) - FIRST_ROBOT],
-//              payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
     }
   payloadBfr = NULL;
   }
