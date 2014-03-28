@@ -20,21 +20,23 @@ CHANGES
 
 #include "includes.h"
 #include "assert.h"
-//#include "Globals.h"
+#include "Constants.h"
 #include "MemMgr.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
 #define SuspendTimeout 100	/* -- Timeout suspended task if not awakened. */
-#define BUFFER_SIZE 24
 
 /*----- g l o b a l s -----*/
 
 /* Space for "PoolSize" buffers */
-Buffer	bfrSpace[PoolSize];
+Buffer     bfrSpace[PoolSize];
+CPU_INT08U bufferArrays[PayloadBfrSize][PoolSize];
+
 
 /* Memory partition control block to manage the buffer pool */
 OS_MEM bfrPool;
+OS_MEM bfrSpacePool;
 
 /* Semaphores */
 OS_SEM bfrAvail;	/* Number of free buffers remaining in the pool */
@@ -62,6 +64,13 @@ void InitMemMgr(void)
   /* Create a pool of "PoolSize" buffers. */
   OSMemCreate(&bfrPool, "Buffer Pool", bfrSpace, PoolSize, sizeof(Buffer), &osErr);
   assert(osErr == OS_ERR_NONE);
+  
+  /* Create a pool of "PoolSize" buffers. */
+  OSMemCreate(&bfrPool, "Buffer Space Pool", bfrSpace, PoolSize, sizeof(Buffer), &osErr);
+  assert(osErr == OS_ERR_NONE);
+  
+  OSMemCreate(&bfrSpacePool, "Buffer Space Pool", bufferArrays, PoolSize, sizeof(BufferSpace_t), &osErr);
+  assert(osErr == OS_ERR_NONE);
 }
 
 /*--------------- A l l o c a t e ( ) ---------------*/
@@ -82,6 +91,7 @@ Buffer *Allocate(void)
   OS_ERR osErr;/* -- uCos Error Code */   
    
   Buffer *bfr;  // Allocated buffer address
+  CPU_INT08U *bfrArray[PayloadBfrSize]; // Allocated buffer space
    
   /* Wait until there is an available buffer. */
   OSSemPend(&bfrAvail, SuspendTimeout, OS_OPT_PEND_BLOCKING, NULL, &osErr);
@@ -90,9 +100,12 @@ Buffer *Allocate(void)
   /* Get the buffer from the pool. */
   bfr = (Buffer*) OSMemGet(&bfrPool, &osErr);
   assert(osErr==OS_ERR_NONE);
+  
+  bfrArray[0] = (CPU_INT08U*) OSMemGet(&bfrSpacePool, &osErr);
+  assert(osErr==OS_ERR_NONE);
 	
   /* Initialize the buffer to prepare for filling. */
-  BfrInit(bfr, BUFFER_SIZE);
+  BfrInit(bfr, *bfrArray, PayloadBfrSize);
 //  BfrReset(bfr);
 	
   return bfr;
@@ -118,6 +131,8 @@ void Free(Buffer *bfr)
    /* Return the buffer. */
 	OSMemPut(&bfrPool, bfr, &osErr);
 	assert(osErr==OS_ERR_NONE);
+        OSMemPut(&bfrSpacePool, bfr->buffer, &osErr);
+        assert(osErr==OS_ERR_NONE);
 	
 	/* Indicate that one more buffer is available. */
   OSSemPost(&bfrAvail, OS_OPT_POST_1, &osErr);

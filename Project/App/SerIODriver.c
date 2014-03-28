@@ -23,23 +23,24 @@ CHANGES
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
 #define NUM_BFRS 1
-#define SUSPEND_TIMEOUT 250
+#define SUSPEND_TIMEOUT 25
 
 /*----- Local Function prototypes -----*/
 void ServiceRx();
 void ServiceTx();
+void ForceiBfr();
 
 /*----- Global Variables -----*/
 // Declare input and output buffer pairs
 //static BfrPair iBfrPair;
 BfrPair iBfrPair;
-//static CPU_INT08U iBfr0Space[BfrSize];
-//static CPU_INT08U iBfr1Space[BfrSize];
+static CPU_INT08U iBfr0Space[BfrSize];
+static CPU_INT08U iBfr1Space[BfrSize];
 
 //static BfrPair oBfrPair;
 BfrPair oBfrPair;
-//static CPU_INT08U oBfr0Space[BfrSize];
-//static CPU_INT08U oBfr1Space[BfrSize];
+static CPU_INT08U oBfr0Space[BfrSize];
+static CPU_INT08U oBfr1Space[BfrSize];
 
 // Declare openObfrs and closedIBfrs semaphores
 static OS_SEM openObfrs;
@@ -91,11 +92,11 @@ void InitSerIO(){
   SETENA1 = USART2ENA;
   
   // Initialize iBfrPair and oBfrPair
-//  BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, BfrSize);
-//  BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, BfrSize);
+  BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, BfrSize);
+  BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, BfrSize);
   
-  BfrPairInit(&iBfrPair, BfrSize);
-  BfrPairInit(&oBfrPair, BfrSize);
+//  BfrPairInit(&iBfrPair, BfrSize);
+//  BfrPairInit(&oBfrPair, BfrSize);
   
   // Initialize semaphores to be used by Serial communications driver
   OSSemCreate(&openObfrs, "Open oBfrs", NUM_BFRS, &osErr);
@@ -162,8 +163,11 @@ CPU_INT16S GetByte(){
   OS_ERR osErr;
   
   if(!GetBfrClosed(&iBfrPair)){
-    OSSemPend(&closedIBfrs, 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-    assert(osErr == OS_ERR_NONE);
+    OSSemPend(&closedIBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+    if(osErr == OS_ERR_TIMEOUT){
+      ForceiBfr();
+    }
+    assert((osErr == OS_ERR_NONE) || (osErr == OS_ERR_TIMEOUT));
     
     if(BfrPairSwappable(&iBfrPair))
       BfrPairSwap(&iBfrPair);
@@ -207,10 +211,25 @@ Flush the output buffer.
 void BfrFlush(void){
   OS_ERR osErr;
   
-//  while(GetBfrClosed(&oBfrPair)){};
   OSSemPend(&openObfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+  assert(osErr == OS_ERR_NONE);
      
   ClosePutBfr(&oBfrPair);
   if(BfrPairSwappable(&oBfrPair))
     BfrPairSwap(&oBfrPair);
+}
+
+/*----------- ForceiBfr() -----------
+Force the iBfr to send any available bytes
+*/
+void ForceiBfr(){
+  OS_ERR osErr;
+  
+  if(iBfrPair.buffers[iBfrPair.putBrfNum].putIndex != 0){
+//    OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
+       
+    ClosePutBfr(&iBfrPair);
+//    if(BfrPairSwappable(&iBfrPair))
+//      BfrPairSwap(&iBfrPair);
+  }
 }

@@ -11,29 +11,29 @@ CHANGES
 
 #include "BfrPair.h"
 
-///*--------------- B f r P a i r I n i t -----------------
-//Initialize a buffer pair
-//*/
-//void BfrPairInit(BfrPair *bfrPair,
-//                 CPU_INT08U *bfr0Space,
-//                 CPU_INT08U *bfr1Space,
-//                 CPU_INT16U size){
-//  BfrInit(&bfrPair->buffers[0], bfr0Space, size);
-//  BfrInit(&bfrPair->buffers[1], bfr1Space, size);
-//  
-//  return;
-//}
-
 /*--------------- B f r P a i r I n i t -----------------
 Initialize a buffer pair
 */
 void BfrPairInit(BfrPair *bfrPair,
+                 CPU_INT08U *bfr0Space,
+                 CPU_INT08U *bfr1Space,
                  CPU_INT16U size){
-  BfrInit(&bfrPair->buffers[0], size);
-  BfrInit(&bfrPair->buffers[1], size);
+  BfrInit(&bfrPair->buffers[0], bfr0Space, size);
+  BfrInit(&bfrPair->buffers[1], bfr1Space, size);
   
   return;
 }
+
+///*--------------- B f r P a i r I n i t -----------------
+//Initialize a buffer pair
+//*/
+//void BfrPairInit(BfrPair *bfrPair,
+//                 CPU_INT16U size){
+//  BfrInit(&bfrPair->buffers[0], size);
+//  BfrInit(&bfrPair->buffers[1], size);
+//  
+//  return;
+//}
 
 /*--------------- P u t B f r R e s e t -----------------
 Reset the put buffer

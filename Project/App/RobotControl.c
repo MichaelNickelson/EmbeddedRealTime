@@ -96,6 +96,7 @@ void RobotCtrlTask(void *data){
   CPU_INT08U direction = 0;
   Robot_t *rob = (Robot_t *) data;
   Coord_t pathPoints[LONGEST_PATH];
+  CPU_BOOLEAN breakLoop = FALSE;
 
   for(;;){
     if(payloadBfr == NULL){
@@ -146,13 +147,32 @@ void RobotCtrlTask(void *data){
           payload = (Payload *) payloadBfr->buffer;
           if(payload->msgType == MSG_STOP){
             looping = FALSE;
+            breakLoop = TRUE;
+            
+            OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+            assert(osErr == OS_ERR_NONE);
+          
+            payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT],
+                      0,
+                      OS_OPT_PEND_BLOCKING,
+                      &msgSize,
+                      NULL,
+                      &osErr);
+            assert(osErr == OS_ERR_NONE);
+            payload = (Payload *) payloadBfr->buffer;
+            currentLocation = payload->payloadData.hereIAm;
+            robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
+            break;
           }else{
             currentLocation = payload->payloadData.hereIAm;
             robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
           }
         }while((currentLocation.x != destination.x) || (currentLocation.y != destination.y));
+        if(breakLoop)
+          break;
       }
     }while(looping);
+    breakLoop = FALSE;
     payloadBfr = NULL;
   }
 }
@@ -226,6 +246,7 @@ void MoveRobot(Buffer *payloadBfr){
     
     OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
             payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+    assert(osErr == OS_ERR_NONE);
   }
 }
 
@@ -291,7 +312,7 @@ CPU_INT08U CheckSafety(CPU_INT08U direction, Coord_t currentLocation){
     if(checkedDirections > 3){
       checkedDirections = 0;
       rotation = -rotation;
-      direction = oDir;
+      direction = oDir-1;
     }
   }while(!dirSafe);
   return direction;

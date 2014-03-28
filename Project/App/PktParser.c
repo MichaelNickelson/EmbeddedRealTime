@@ -28,7 +28,7 @@ CHANGES
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 #define ShortestPacket 4
 #define NUM_BFRS 2
-#define SUSPEND_TIMEOUT 250
+//#define SUSPEND_TIMEOUT 250
 #define PARSER_STK_SIZE 128
 #define ParserPrio 4
 
@@ -98,7 +98,6 @@ This is the main function used for packet parsing. It is implemented as a
 state machine.
 */
 void ParsePkt(void *data){
-
   static StateVariables_t myState = {.parseState = P,
                                      .c = 0,
                                      .checkSum = 0,
@@ -112,24 +111,25 @@ void ParsePkt(void *data){
       
     // GetByte will pend if there is no data ready.
     myState.c = GetByte();
+    if(myState.c != -1){
+      // Maintain running checksum as bytes are received
+      myState.checkSum ^= myState.c;
     
-    // Maintain running checksum as bytes are received
-    myState.checkSum ^= myState.c;
-  
-    switch (myState.parseState){
-      case P:  // Look for a preamble
-        DoStateP(&myState);
-        break;
-      case L: // Read in packet length
-        DoStateL(&myState);
-        break;
-      case R:   // Read in data
-        DoStateR(&myState);
-        break;
-      case ER:  // If an error occurs, or a an unknown state arises,
-      default:  // look for a  full preamble.
-        DoStateER(&myState);
-        break;
+      switch (myState.parseState){
+        case P:  // Look for a preamble
+          DoStateP(&myState);
+          break;
+        case L: // Read in packet length
+          DoStateL(&myState);
+          break;
+        case R:   // Read in data
+          DoStateR(&myState);
+          break;
+        case ER:  // If an error occurs, or a an unknown state arises,
+        default:  // look for a  full preamble.
+          DoStateER(&myState);
+          break;
+      }
     }
   }
 }

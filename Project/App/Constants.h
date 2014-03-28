@@ -83,4 +83,9 @@ typedef struct
   } payloadData;
 } Payload;
 
+typedef struct
+{
+  CPU_INT08U bfrSpace[PayloadBfrSize];
+} BufferSpace_t;
+
 #endif

@@ -89,7 +89,7 @@ void RobotMgrTask(void *data){
     if(payload->dstAddr == MyAddress){ // If message is to me, generate a response
         switch(payload->msgType){
           case(MSG_RESET):
-            SendAck(MSG_RESET);
+//            SendAck(MSG_RESET);
             ParseReset();
             break;
           case(MSG_ADD):
@@ -103,8 +103,9 @@ void RobotMgrTask(void *data){
           case(MSG_STOP):
             OSQPost(&robotCtrlMbox[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
               payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+            assert(osErr == OS_ERR_NONE);
             OSSemPost(&messageWaiting[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
-//            SendAck(MSG_STOP_LOOP);
+            assert(osErr == OS_ERR_NONE);
             break;
           default:  // Handle unknown message types
             SendError(ERR_MGR_TYPE);

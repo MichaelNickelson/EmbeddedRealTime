@@ -23,13 +23,13 @@ typedef struct
   CPU_INT16U size;
   CPU_INT16U putIndex;
   CPU_INT16U getIndex;
-//  CPU_INT08U *buffer;
-  CPU_INT08U buffer[BfrLength];
+  CPU_INT08U *buffer;
+//  BufferSpace_t *buffer;
 } Buffer;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void BfrInit(Buffer * bfr,
-//             CPU_INT08U *bfrSpace,
+             CPU_INT08U *bfrSpace,
              CPU_INT16U size);
 
 void BfrReset(Buffer *bfr);

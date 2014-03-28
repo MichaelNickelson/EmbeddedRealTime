@@ -27,13 +27,13 @@ typedef struct
 } BfrPair;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
-//void BfrPairInit(BfrPair *bfrPair,
-//                 CPU_INT08U *bfr0Space,
-//                 CPU_INT08U *bfr1Space,
-//                 CPU_INT16U size);
-
 void BfrPairInit(BfrPair *bfrPair,
+                 CPU_INT08U *bfr0Space,
+                 CPU_INT08U *bfr1Space,
                  CPU_INT16U size);
+
+//void BfrPairInit(BfrPair *bfrPair,
+//                 CPU_INT16U size);
 
 void PutBfrReset(BfrPair *bfrPair);
 void ClosePutBfr(BfrPair *bfrPair);
