@@ -3,7 +3,7 @@
 by: Michael Nickelson
 
 PURPOSE - Header file
-Define constants used throughout this project
+Define constants and structures used throughout this project
 
 CHANGES
 04-30-2014 mn -  Initial submission

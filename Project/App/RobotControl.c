@@ -22,6 +22,7 @@ CHANGES
 #define ROBOT_CTRL_STK_SIZE 128
 #define PAYLOAD_OVERHEAD 5
 #define DIMENSIONS 2
+#define DIRECTIONS 8
 
 typedef struct
 {
@@ -33,9 +34,8 @@ typedef struct
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotCtrlTask(void *data);
-//void MoveRobot(Buffer *payloadBfr, Coord_t destination);
-CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation);
-CPU_INT08U CheckSafety(CPU_INT08U direction, Coord_t nextLocation);
+CPU_INT08U StepRobot(Coord_t destination, Robot_t *robot);
+CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 // Task TCB and stack
@@ -91,7 +91,6 @@ void RobotCtrlTask(void *data){
   CPU_BOOLEAN looping = FALSE;
   Buffer *payloadBfr = NULL;
   OS_MSG_SIZE msgSize;
-  Coord_t currentLocation;
   Coord_t destination;
   CPU_INT08U direction = 0;
   Robot_t *rob = (Robot_t *) data;
@@ -117,13 +116,12 @@ void RobotCtrlTask(void *data){
 
     for(CPU_INT08U j=0;j<numPoints;j++)
       pathPoints[j] = payload->payloadData.robot.destination[j];
-    do{    
-      currentLocation = robots[rob->id - FIRST_ROBOT].location;
+    do{
       for(CPU_INT08U j = 0;j<numPoints;j++){
         destination = pathPoints[j];
         do{
           BfrReset(payloadBfr);
-          direction = StepRobot(destination, currentLocation);
+          direction = StepRobot(destination, &robots[rob->id - FIRST_ROBOT]);
           BfrAddByte(payloadBfr, 9);
           BfrAddByte(payloadBfr, rob->id);
           BfrAddByte(payloadBfr, MyAddress);
@@ -160,14 +158,13 @@ void RobotCtrlTask(void *data){
                       &osErr);
             assert(osErr == OS_ERR_NONE);
             payload = (Payload *) payloadBfr->buffer;
-            currentLocation = payload->payloadData.hereIAm;
-            robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
+            robots[payload->srcAddr - FIRST_ROBOT].location = payload->payloadData.hereIAm;
             break;
           }else{
-            currentLocation = payload->payloadData.hereIAm;
-            robots[payload->srcAddr - FIRST_ROBOT].location = currentLocation;
+            robots[payload->srcAddr - FIRST_ROBOT].location = payload->payloadData.hereIAm;
           }
-        }while((currentLocation.x != destination.x) || (currentLocation.y != destination.y));
+        }while((robots[payload->srcAddr - FIRST_ROBOT].location.x != destination.x) ||
+               (robots[payload->srcAddr - FIRST_ROBOT].location.y != destination.y));
         if(breakLoop)
           break;
       }
@@ -253,8 +250,9 @@ void MoveRobot(Buffer *payloadBfr){
 /*--------------- S t e p R o b o t ---------------
 Determine which direction a robot should step in
 */
-CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation){
+CPU_INT08U StepRobot(Coord_t destination, Robot_t *robot){
   CPU_INT08S direction;
+  Coord_t currentLocation = robot->location;
   
   if((destination.x == currentLocation.x) && (destination.y > currentLocation.y))
      direction = N;
@@ -276,44 +274,58 @@ CPU_INT08U StepRobot(Coord_t destination, Coord_t currentLocation){
     direction = NoStep;
   
   if(direction != NoStep)
-    direction = CheckSafety(direction, currentLocation);
+    direction = CheckSafety(direction, robot);
+  
   return direction;
 }
 
-CPU_INT08U CheckSafety(CPU_INT08U direction, Coord_t currentLocation){
+CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot){
+  static Coord_t lastLocation;
+  Coord_t currentLocation = robot->location;
   CPU_BOOLEAN dirSafe;
-  CPU_INT08S rotation = 1;
-  CPU_INT08U checkedDirections = 0;
   CPU_INT08S oDir = direction;
-  CPU_INT08U change[9][2] = {{0,0},{0,1},{1,1},{1,0},{1,-1},{0,-1},{-1,-1},{-1,0},{-1,1}};
+  CPU_INT08U change[DIRECTIONS+1][DIMENSIONS] = {{0,0},{0,1},{1,1},{1,0},{1,-1},{0,-1},{-1,-1},{-1,0},{-1,1}};
+  CPU_INT08S dirPref[DIRECTIONS] = {0, 1, -1, -2, 2, 3, -3, 4};
   Coord_t nextLocation;
- 
-  do{
+  
+  for(CPU_INT08U j=0;j<DIRECTIONS;j++){
     dirSafe = TRUE;
     
+    // Set and unwrap the direction to be tested
+    direction = oDir + dirPref[j];
+    if(direction > DIRECTIONS)
+      direction -= DIRECTIONS;
+    else if(direction < 1)
+      direction += DIRECTIONS;
+    
+    // Figure out which point is going to be tested for safety
     nextLocation.x = currentLocation.x + change[direction][0];
     nextLocation.y = currentLocation.y + change[direction][1];
-    for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
-      if((robots[j].exists) &&
-         (robots[j].location.x == nextLocation.x) &&
-         (robots[j].location.y == nextLocation.y)){
+    
+    // Make sure there's not already a robot there
+    for(CPU_INT08U k=0;k<MAX_ROBOTS;k++){
+      if((robots[k].exists) &&
+         (robots[k].location.x == nextLocation.x) &&
+         (robots[k].location.y == nextLocation.y)){
         dirSafe = FALSE;
         break;
       }
     }
+    
+    // Make sure it's inside the field
     if((nextLocation.x > X_LIM) || (nextLocation.y > Y_LIM))
       dirSafe = FALSE;
-      
-    if(!dirSafe){
-      direction += rotation;
-      direction = direction < 9 ? direction : 8;
-      checkedDirections += 1;
-    }
-    if(checkedDirections > 3){
-      checkedDirections = 0;
-      rotation = -rotation;
-      direction = oDir-1;
-    }
-  }while(!dirSafe);
+    
+    // Don't immediately backtrack
+    if((nextLocation.x == lastLocation.x) && (nextLocation.y == lastLocation.y))
+      dirSafe = FALSE;
+    
+    if(dirSafe)
+      break;
+  }
+  
+  lastLocation.x = oDir == direction ? -1 : currentLocation.x;
+  lastLocation.y = oDir == direction ? -1 : currentLocation.y;
+  robot->location = nextLocation;
   return direction;
 }

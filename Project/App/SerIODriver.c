@@ -23,6 +23,7 @@ CHANGES
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
 #define NUM_BFRS 1
+//#define SUSPEND_TIMEOUT (2 * BfrSize)
 #define SUSPEND_TIMEOUT 25
 
 /*----- Local Function prototypes -----*/
@@ -94,9 +95,6 @@ void InitSerIO(){
   // Initialize iBfrPair and oBfrPair
   BfrPairInit(&iBfrPair, iBfr0Space, iBfr1Space, BfrSize);
   BfrPairInit(&oBfrPair, oBfr0Space, oBfr1Space, BfrSize);
-  
-//  BfrPairInit(&iBfrPair, BfrSize);
-//  BfrPairInit(&oBfrPair, BfrSize);
   
   // Initialize semaphores to be used by Serial communications driver
   OSSemCreate(&openObfrs, "Open oBfrs", NUM_BFRS, &osErr);
@@ -217,6 +215,9 @@ void BfrFlush(void){
   ClosePutBfr(&oBfrPair);
   if(BfrPairSwappable(&oBfrPair))
     BfrPairSwap(&oBfrPair);
+  
+  while(GetBfrClosed(&oBfrPair))
+    ServiceTx();
 }
 
 /*----------- ForceiBfr() -----------
@@ -226,10 +227,7 @@ void ForceiBfr(){
   OS_ERR osErr;
   
   if(iBfrPair.buffers[iBfrPair.putBrfNum].putIndex != 0){
-//    OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
-       
     ClosePutBfr(&iBfrPair);
-//    if(BfrPairSwappable(&iBfrPair))
-//      BfrPairSwap(&iBfrPair);
+    OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
   }
 }

@@ -131,5 +131,5 @@ Reset the board
 */
 void ParseReset(void){
   NVIC_GenerateCoreReset();
-  return;
+//  return;
 }

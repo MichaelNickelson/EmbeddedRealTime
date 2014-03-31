@@ -31,10 +31,6 @@ void BfrPairInit(BfrPair *bfrPair,
                  CPU_INT08U *bfr0Space,
                  CPU_INT08U *bfr1Space,
                  CPU_INT16U size);
-
-//void BfrPairInit(BfrPair *bfrPair,
-//                 CPU_INT16U size);
-
 void PutBfrReset(BfrPair *bfrPair);
 void ClosePutBfr(BfrPair *bfrPair);
 void OpenGetBfr(BfrPair *bfrPair);
