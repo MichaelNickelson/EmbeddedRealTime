@@ -108,8 +108,7 @@ void ParsePkt(void *data){
   for(;;){
     if(myState.payloadBfr == NULL)
       myState.payloadBfr = Allocate();
-      
-    // GetByte will pend if there is no data ready.
+    
     myState.c = GetByte();
     if(myState.c != -1){
       // Maintain running checksum as bytes are received

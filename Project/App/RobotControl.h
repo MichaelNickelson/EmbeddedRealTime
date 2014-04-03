@@ -22,5 +22,6 @@ extern OS_SEM messageWaiting[MAX_ROBOTS];
 void CreateRobotCtrlTask(CPU_INT08U id);
 void AddRobot(Buffer *payloadBfr);
 void MoveRobot(Buffer *payloadBfr);
+void StopRobot(Buffer *payloadBfr);
 
 #endif

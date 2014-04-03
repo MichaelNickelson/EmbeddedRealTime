@@ -19,7 +19,7 @@ CHANGES
 #include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
-#define SUSPEND_TIMEOUT 250
+#define SUSPEND_TIMEOUT 0
 #define FRAMER_STK_SIZE 128
 #define FramerPrio 6
 
@@ -75,7 +75,7 @@ void Framer(void *data){
     
     if(payloadBfr == NULL){
       payloadBfr = OSQPend(&framerQueue,
-                           0,
+                           SUSPEND_TIMEOUT,
                            OS_OPT_PEND_BLOCKING,
                            &msgSize,
                            NULL,
