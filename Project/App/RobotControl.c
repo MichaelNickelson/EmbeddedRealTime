@@ -37,7 +37,6 @@ typedef struct
 void RobotCtrlTask(void *data);
 CPU_INT08U StepRobot(Coord_t destination, Robot_t *robot);
 CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot);
-Payload* GetPayload(CPU_INT08U id);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 // Task TCB and stack
@@ -99,20 +98,12 @@ void RobotCtrlTask(void *data){
   CPU_BOOLEAN breakLoop = FALSE;
 
   for(;;){
-    if(payloadBfr == NULL){
-      payloadBfr = OSQPend(&robotCtrlQueue[rob->id - FIRST_ROBOT],
-                   0,
-                   OS_OPT_PEND_BLOCKING,
-                   &msgSize,
-                   NULL,
-                   &osErr);
+    payloadBfr = OSQPend(&robotCtrlQueue[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, &msgSize, NULL, &osErr);
     assert(osErr == OS_ERR_NONE);
-    }
+
     Payload *payload = (Payload *) payloadBfr->buffer;
-    
     SendAck(payload->msgType);
     looping = payload->msgType == MSG_LOOP ? TRUE : FALSE;
-    
     CPU_INT08U numPoints = (payload->payloadLen - PAYLOAD_OVERHEAD)/DIMENSIONS;
 
     for(CPU_INT08U j=0;j<numPoints;j++)
@@ -134,12 +125,7 @@ void RobotCtrlTask(void *data){
           OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
           assert(osErr == OS_ERR_NONE);
           
-          payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT],
-                     SUSPEND_TIMEOUT,
-                     OS_OPT_PEND_BLOCKING,
-                     &msgSize,
-                     NULL,
-                     &osErr);
+          payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize, NULL, &osErr);
           assert(osErr == OS_ERR_NONE);
           payload = (Payload *) payloadBfr->buffer;
           
@@ -147,6 +133,8 @@ void RobotCtrlTask(void *data){
             looping = FALSE;
             breakLoop = TRUE;
             OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+            assert(osErr == OS_ERR_NONE);
+            OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize,NULL,&osErr);
             assert(osErr == OS_ERR_NONE);
             break;
           }
@@ -196,10 +184,10 @@ void AddRobot(Buffer *payloadBfr){
   }
 }
 
-/*--------------- M o v e R o b o t ---------------
-Move a robot to the given set of coordinates
+/*--------------- V a l i d a t e C o m m a n d ---------------
+Ensure that a command involving robot movement is valid
 */
-void MoveRobot(Buffer *payloadBfr){
+void ValidateCommand(Buffer *payloadBfr){
   OS_ERR osErr;
   Payload *payload = (Payload *) payloadBfr->buffer;
   CPU_INT08U numPoints = (payload->payloadLen - PAYLOAD_OVERHEAD)/DIMENSIONS;
@@ -222,6 +210,7 @@ void MoveRobot(Buffer *payloadBfr){
     Free(payloadBfr);
     return;
   }else{
+    // Make sure all the destination points are on the field
     for(CPU_INT08U j=0;j<numPoints;j++){
       if((destination[j].x > X_LIM) || (destination[j].y > Y_LIM)){
         SendError((Error_t) (ERROR_MULTIPLIER*payload->msgType + BAD_LOCATION));
@@ -230,6 +219,7 @@ void MoveRobot(Buffer *payloadBfr){
       }
     }
     
+    // If everything is good, post a message to the appropriate ctrlQueue
     OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
             payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
     assert(osErr == OS_ERR_NONE);
@@ -278,20 +268,20 @@ void StopRobot(Buffer *payloadBfr){
   
   // Make sure the address is valid
   if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){
-    SendError((Error_t) (ERROR_MULTIPLIER*payload->msgType + ROBOT_ADDRESS));
+    SendError((Error_t) (ERROR_MULTIPLIER*MSG_STOP + ROBOT_ADDRESS));
     Free(payloadBfr);
     return;
   // Make sure the robot exists
-  }else if(!robots[payload->payloadData.robot.robotAddress - FIRST_ROBOT].exists){
+  }else if(!robots[id - FIRST_ROBOT].exists){
     SendError((Error_t) (ERROR_MULTIPLIER*payload->msgType + NON_EXISTENT_ROBOT));
     Free(payloadBfr);
     return;
   }
     
-  OSQPost(&robotCtrlMbox[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
+  OSQPost(&robotCtrlMbox[id - FIRST_ROBOT],
           payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
   assert(osErr == OS_ERR_NONE);
-  OSSemPost(&messageWaiting[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
+  OSSemPost(&messageWaiting[id - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
   assert(osErr == OS_ERR_NONE);
   
   SendAck(MSG_STOP);
@@ -349,24 +339,4 @@ CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot){
   lastLocation.y = oDir == direction ? -1 : currentLocation.y;
   robot->location = nextLocation;
   return direction;
-}
-
-/*--------------- G e t P a y l o a d ---------------
-Get a payload buffer and extract the payload
-*/
-Payload* GetPayload(CPU_INT08U id){
-  OS_ERR osErr;
-  OS_MSG_SIZE msgSize;
-  Payload *payload;
-  
-  Buffer* payloadBfr = OSQPend(&robotCtrlMbox[id],
-                              0,
-                              OS_OPT_PEND_BLOCKING,
-                              &msgSize,
-                              NULL,
-                              &osErr);
-  assert(osErr == OS_ERR_NONE);
-  payload = (Payload *) payloadBfr->buffer;
-  
-  return payload;
 }

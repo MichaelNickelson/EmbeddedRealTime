@@ -96,7 +96,7 @@ void RobotMgrTask(void *data){
           case(MSG_MOVE):
           case(MSG_PATH):
           case(MSG_LOOP):
-            MoveRobot(payloadBfr);
+            ValidateCommand(payloadBfr);
             break;
           case(MSG_STOP):
             StopRobot(payloadBfr);

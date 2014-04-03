@@ -158,7 +158,6 @@ CPU_INT16S GetByte(){
   CPU_INT16S retVal = -1;
   USART_TypeDef *uart = USART2;
   OS_ERR osErr;
-  static CPU_INT08U counter = 0;
   static CPU_INT08U putIndex = -1;
   
   if(!GetBfrClosed(&iBfrPair)){
