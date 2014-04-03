@@ -23,8 +23,6 @@ CHANGES
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
 #define NUM_BFRS 1
-//#define SUSPEND_TIMEOUT (2 * BfrSize)
-#define SUSPEND_TIMEOUT 25
 
 /*----- Local Function prototypes -----*/
 void ServiceRx();
@@ -37,6 +35,7 @@ void ForceiBfr();
 BfrPair iBfrPair;
 static CPU_INT08U iBfr0Space[BfrSize];
 static CPU_INT08U iBfr1Space[BfrSize];
+const CPU_INT16U SUSPEND_TIMEOUT = 2*BfrSize;
 
 //static BfrPair oBfrPair;
 BfrPair oBfrPair;
@@ -159,16 +158,20 @@ CPU_INT16S GetByte(){
   CPU_INT16S retVal = -1;
   USART_TypeDef *uart = USART2;
   OS_ERR osErr;
+  static CPU_INT08U counter = 0;
+  static CPU_INT08U putIndex = -1;
   
   if(!GetBfrClosed(&iBfrPair)){
+    putIndex = iBfrPair.buffers[iBfrPair.putBrfNum].putIndex;
     OSSemPend(&closedIBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
     if(osErr == OS_ERR_TIMEOUT){
-      ForceiBfr();
-    }
-    assert((osErr == OS_ERR_NONE) || (osErr == OS_ERR_TIMEOUT));
-    
-    if(BfrPairSwappable(&iBfrPair))
-      BfrPairSwap(&iBfrPair);
+      if(iBfrPair.buffers[iBfrPair.putBrfNum].putIndex == putIndex)
+        ForceiBfr();
+    }else{
+      assert(osErr == OS_ERR_NONE);
+      if(BfrPairSwappable(&iBfrPair))
+        BfrPairSwap(&iBfrPair);
+    } 
   }
      
   if(GetBfrClosed(&iBfrPair)){
@@ -207,17 +210,32 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
 Flush the output buffer.
 */
 void BfrFlush(void){
+//  OS_ERR osErr;
+//  
+//  OSSemPend(&openObfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+//  assert(osErr == OS_ERR_NONE);
+//     
+//  ClosePutBfr(&oBfrPair);
+//  if(BfrPairSwappable(&oBfrPair))
+//    BfrPairSwap(&oBfrPair);
+//  
+//  while(GetBfrClosed(&oBfrPair))
+//    ServiceTx();
+////    SerialISR();
+
+  USART_TypeDef *uart = USART2;
   OS_ERR osErr;
+
   
+  ClosePutBfr(&oBfrPair);
+
   OSSemPend(&openObfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
   assert(osErr == OS_ERR_NONE);
-     
-  ClosePutBfr(&oBfrPair);
+    
   if(BfrPairSwappable(&oBfrPair))
     BfrPairSwap(&oBfrPair);
-  
-  while(GetBfrClosed(&oBfrPair))
-    ServiceTx();
+
+  uart->CR1 = uart->CR1 | TXEIE_MASK;
 }
 
 /*----------- ForceiBfr() -----------
@@ -228,6 +246,9 @@ void ForceiBfr(){
   
   if(iBfrPair.buffers[iBfrPair.putBrfNum].putIndex != 0){
     ClosePutBfr(&iBfrPair);
+//    if(BfrPairSwappable(&iBfrPair))
+//      BfrPairSwap(&iBfrPair);
     OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
+//    ServiceRx();
   }
 }

@@ -31,7 +31,6 @@ CHANGES
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotMgrTask(void *data);
-void ParseReset(void);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 // Task TCB and stack
@@ -76,7 +75,7 @@ void RobotMgrTask(void *data){
   for(;;){
     if(payloadBfr == NULL){
       payloadBfr = OSQPend(&parserQueue,
-                   0,
+                   SUSPEND_TIMEOUT,
                    OS_OPT_PEND_BLOCKING,
                    &msgSize,
                    NULL,
@@ -89,8 +88,7 @@ void RobotMgrTask(void *data){
     if(payload->dstAddr == MyAddress){ // If message is to me, generate a response
         switch(payload->msgType){
           case(MSG_RESET):
-//            SendAck(MSG_RESET);
-            ParseReset();
+            NVIC_GenerateCoreReset();
             break;
           case(MSG_ADD):
             AddRobot(payloadBfr);
@@ -101,11 +99,7 @@ void RobotMgrTask(void *data){
             MoveRobot(payloadBfr);
             break;
           case(MSG_STOP):
-            OSQPost(&robotCtrlMbox[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
-              payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-            assert(osErr == OS_ERR_NONE);
-            OSSemPost(&messageWaiting[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
-            assert(osErr == OS_ERR_NONE);
+            StopRobot(payloadBfr);
             break;
           default:  // Handle unknown message types
             SendError(ERR_MGR_TYPE);
@@ -122,14 +116,4 @@ void RobotMgrTask(void *data){
     }
   payloadBfr = NULL;
   }
-}
-
-/* Parse and print each message in its own function */
-
-/*--------------- P a r s e R e s e t ---------------
-Reset the board
-*/
-void ParseReset(void){
-  NVIC_GenerateCoreReset();
-//  return;
 }
