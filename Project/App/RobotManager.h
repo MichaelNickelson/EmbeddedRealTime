@@ -25,6 +25,10 @@ CHANGES
 #define MSG_ACK 0x0A
 #define MSG_ERR 0x0B
 
+#define CtrlCtrAddress 1
+#define MyAddress 2
+#define HIGH_WATER_LIMIT 10
+
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void CreateRobotMgrTask(void);
 

@@ -14,7 +14,6 @@ CHANGES
 #define BUFFER_H
 
 #include "includes.h"
-#include "Constants.h"
 
 /*----- t y p e d e f s   u s e d   i n   B u f f e r -----*/
 typedef struct

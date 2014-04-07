@@ -14,7 +14,6 @@ CHANGES
 #include "Framer.h"
 #include "assert.h"
 #include "BfrPair.h"
-#include "Constants.h"
 #include "MemMgr.h"
 #include "RobotManager.h"
 #include "SerIODriver.h"
@@ -113,15 +112,6 @@ void SendAck(CPU_INT08U type){
   
   // Send an Ack packet to the framer for transmission
   MakePayload(ackBfr, CtrlCtrAddress, MSG_ACK, type);
-//  BfrAddByte(ackBfr, ACK_PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
-//  BfrAddByte(ackBfr, CtrlCtrAddress);
-//  BfrAddByte(ackBfr, MyAddress);
-//  BfrAddByte(ackBfr, MSG_ACK);
-//  BfrAddByte(ackBfr, type);
-//  
-//  BfrClose(ackBfr);
-//  OSQPost(&framerQueue, ackBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-//  assert(osErr == OS_ERR_NONE);
 }
 
 /*--------------- M a k e P a y l  o a d ---------------

@@ -20,6 +20,10 @@ CHANGES
 
 extern OS_Q framerQueue; // The queue of parsed payloads to RobotManager
 
+/*----- c o n s t a n t    d e f i n i t i o n s -----*/
+// Also used by PktParser.c
+#define PREAMBLE_LENGTH 3
+
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void CreateFramerTask(void);
 void SendAck(CPU_INT08U type);

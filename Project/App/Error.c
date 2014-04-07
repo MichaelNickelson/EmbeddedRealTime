@@ -12,7 +12,6 @@ CHANGES
 #include "includes.h"
 #include "Error.h"
 #include "assert.h"
-#include "Constants.h"
 #include "Framer.h"
 #include "Memmgr.h"
 #include "RobotControl.h"

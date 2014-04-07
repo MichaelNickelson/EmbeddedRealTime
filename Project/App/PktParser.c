@@ -16,21 +16,18 @@ CHANGES
 #include "includes.h"
 #include "PktParser.h"
 #include "assert.h"
-#include "Constants.h"
 #include "BfrPair.h"
 #include "Error.h"
 #include "Framer.h"
 #include "MemMgr.h"
 #include "SerIODriver.h"
 
-#include "Constants.h"
-
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 #define ShortestPacket 4
 #define NUM_BFRS 2
-//#define SUSPEND_TIMEOUT 250
 #define PARSER_STK_SIZE 128
 #define ParserPrio 4
+#define PREAMBLE_LENGTH 3
 
 /*----- t y p e d e f s   u s e d   i n   p a r s e r -----*/
 /* Parser state data type */

@@ -12,7 +12,6 @@ CHANGES
 #include "includes.h"
 #include "RobotControl.h"
 #include "assert.h"
-#include "Constants.h"
 #include "Error.h"
 #include "Framer.h"
 #include "MemMgr.h"
@@ -43,6 +42,10 @@ typedef struct
 #define W 7
 #define NW 8
 #define NoStep 0
+
+/*----- Dimensions of the field being used -----*/
+#define X_LIM 39
+#define Y_LIM 18
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotCtrlTask(void *data);
@@ -128,7 +131,6 @@ void RobotCtrlTask(void *data){
           direction = oDirection != NoStep ? CheckSafety(oDirection, rob) : oDirection;
           
           MakePayload(payloadBfr, rob->id, MSG_STEP, direction);
-
           OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
           assert(osErr == OS_ERR_NONE);
           

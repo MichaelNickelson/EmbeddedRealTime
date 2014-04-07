@@ -20,8 +20,17 @@ CHANGES
 
 #include "includes.h"
 #include "assert.h"
-#include "Constants.h"
 #include "MemMgr.h"
+
+/*----- c o n s t a n t s -----*/
+#define PayloadBfrSize 24
+
+/*----- t y p e d e f s -----*/
+// So that a buffer space can be allocated along with a buffer
+typedef struct
+{
+  CPU_INT08U bfrSpace[PayloadBfrSize];
+} BufferSpace_t;
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
