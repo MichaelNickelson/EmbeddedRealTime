@@ -15,24 +15,16 @@ CHANGES
 #include "Constants.h"
 #include "Framer.h"
 #include "Memmgr.h"
+#include "RobotControl.h"
 
-#define ERR_PAYLOAD_SIZE 5
+////#define ERR_PAYLOAD_SIZE 5
 
 /*--------------- S e n d E r r o r ---------------
 Generate an error message and send it to the framer for transmission
 */
 void SendError(Error_t e){
-  OS_ERR osErr;
   
   Buffer *eBfr = Allocate();
   
-  BfrAddByte(eBfr, ERR_PAYLOAD_SIZE + PREAMBLE_LENGTH +1);
-  BfrAddByte(eBfr, CtrlCtrAddress);
-  BfrAddByte(eBfr, MyAddress);
-  BfrAddByte(eBfr, MSG_ERR);
-  BfrAddByte(eBfr, e);
-  
-  BfrClose(eBfr);
-  OSQPost(&framerQueue, eBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-  assert(osErr == OS_ERR_NONE);
+  MakePayload(eBfr, CtrlCtrAddress, MSG_ERR, e);
 }

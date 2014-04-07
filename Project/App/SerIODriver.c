@@ -245,8 +245,8 @@ void ForceiBfr(){
   
   if(iBfrPair.buffers[iBfrPair.putBrfNum].putIndex != 0){
     ClosePutBfr(&iBfrPair);
-//    if(BfrPairSwappable(&iBfrPair))
-//      BfrPairSwap(&iBfrPair);
+    if(BfrPairSwappable(&iBfrPair))
+      BfrPairSwap(&iBfrPair);
     OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
 //    ServiceRx();
   }

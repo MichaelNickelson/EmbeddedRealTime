@@ -30,31 +30,6 @@ CHANGES
 
 #define BfrLength 24
 
-/*-----  Assign easy to read names to message ID -----*/
-#define MSG_RESET 0
-#define MSG_ADD 1
-#define MSG_MOVE 2
-#define MSG_PATH 3
-#define MSG_LOOP 4
-#define MSG_STOP 5
-
-#define MSG_STEP 0x07
-#define MSG_HERE_I_AM 9
-
-#define MSG_ACK 0x0A
-#define MSG_ERR 0x0B
-
-/*-----  Directions used for step packets -----*/
-#define N 1
-#define NE 2
-#define E 3
-#define SE 4
-#define S 5
-#define SW 6
-#define W 7
-#define NW 8
-#define NoStep 0
-
 /*----- t y p e d e f s   u s e d   i n   t h i s   p r o j e c t -----*/
 typedef struct
 {

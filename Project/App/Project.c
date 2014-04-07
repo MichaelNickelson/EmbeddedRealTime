@@ -13,7 +13,6 @@ CHANGES
 */
 
 #include "includes.h"
-#include "Constants.h"
 #include "assert.h"
 #include "Framer.h"
 #include "Intrpt.h"
@@ -124,7 +123,6 @@ static  void  Init (void *p_arg)
   CreateParsePktTask();
   CreateFramerTask();
   CreateRobotMgrTask();
-//  CreatePayloadTask();
   
   // Delete the Init task.
   OSTaskDel(&initTCB, &err);

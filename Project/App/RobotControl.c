@@ -24,6 +24,7 @@ CHANGES
 #define DIMENSIONS 2
 #define DIRECTIONS 8
 #define SUSPEND_TIMEOUT 2500
+#define MISSED_STEPS 6
 
 typedef struct
 {
@@ -32,9 +33,20 @@ typedef struct
   CPU_BOOLEAN exists;
 } Robot_t;
 
+/*-----  Directions used for step packets -----*/
+#define N 1
+#define NE 2
+#define E 3
+#define SE 4
+#define S 5
+#define SW 6
+#define W 7
+#define NW 8
+#define NoStep 0
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotCtrlTask(void *data);
+//void MakePayload(Buffer *payloadBfr, CPU_INT08U receiver, CPU_INT08U type, CPU_INT08U payload);
 CPU_INT08U StepRobot(Coord_t destination, Robot_t *robot);
 CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot);
 
@@ -93,6 +105,8 @@ void RobotCtrlTask(void *data){
   Buffer *payloadBfr = NULL;
   OS_MSG_SIZE msgSize;
   CPU_INT08U direction = 0;
+  CPU_INT08U oDirection = 0;
+  CPU_INT08U unSafe = 0;
   Robot_t *rob = (Robot_t *) data;
   Coord_t pathPoints[LONGEST_PATH];
   CPU_BOOLEAN breakLoop = FALSE;
@@ -102,7 +116,6 @@ void RobotCtrlTask(void *data){
     assert(osErr == OS_ERR_NONE);
 
     Payload *payload = (Payload *) payloadBfr->buffer;
-    SendAck(payload->msgType);
     looping = payload->msgType == MSG_LOOP ? TRUE : FALSE;
     CPU_INT08U numPoints = (payload->payloadLen - PAYLOAD_OVERHEAD)/DIMENSIONS;
 
@@ -111,18 +124,12 @@ void RobotCtrlTask(void *data){
     do{
       for(CPU_INT08U j = 0;j<numPoints;j++){
         do{
-          BfrReset(payloadBfr);
-          direction = StepRobot(pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
-          BfrAddByte(payloadBfr, 9);
-          BfrAddByte(payloadBfr, rob->id);
-          BfrAddByte(payloadBfr, MyAddress);
-          BfrAddByte(payloadBfr, MSG_STEP);
-          BfrAddByte(payloadBfr, direction);
-          BfrClose(payloadBfr);
+          oDirection = StepRobot(pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
+          direction = oDirection != NoStep ? CheckSafety(oDirection, rob) : oDirection;
           
-          OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-          assert(osErr == OS_ERR_NONE);
-          OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], 0, OS_OPT_PEND_BLOCKING, NULL, &osErr);
+          MakePayload(payloadBfr, rob->id, MSG_STEP, direction);
+
+          OSSemPend(&messageWaiting[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
           assert(osErr == OS_ERR_NONE);
           
           payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize, NULL, &osErr);
@@ -136,6 +143,11 @@ void RobotCtrlTask(void *data){
             assert(osErr == OS_ERR_NONE);
             OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize,NULL,&osErr);
             assert(osErr == OS_ERR_NONE);
+            break;
+          }
+          unSafe = direction != oDirection ? unSafe+1 : 0;
+          if(unSafe > MISSED_STEPS){
+            unSafe = 0;
             break;
           }
         }while((robots[payload->srcAddr - FIRST_ROBOT].location.x != pathPoints[j].x) ||
@@ -158,13 +170,13 @@ void AddRobot(Buffer *payloadBfr){
   CPU_INT08U id = payload->payloadData.robot.robotAddress;
   Coord_t location = payload->payloadData.robot.destination[0];
   
-  if(robots[id-FIRST_ROBOT].exists){ // Make sure the robot doesn't already exist
-    SendError(ERR_ADD_EXISTS);
+  if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){ // Is this a valid id?
+    SendError(ERR_ADD_ADDRESS);
   }else if((location.x > X_LIM) ||
            (location.y > Y_LIM)){ // Make sure you've been given a valid starting point
     SendError(ERR_ADD_LOC);
-  }else if((id < FIRST_ROBOT) || (id > FIRST_ROBOT + MAX_ROBOTS - 1)){ // and a valid id
-    SendError(ERR_ADD_ADDRESS);
+  }else if(robots[id-FIRST_ROBOT].exists){ // Make sure the robot doesn't already exist
+    SendError(ERR_ADD_EXISTS);
   }else{
     for(CPU_INT08U j=0;j<MAX_ROBOTS;j++){
       // And make sure the starting point isn't already taken by someone else
@@ -219,10 +231,12 @@ void ValidateCommand(Buffer *payloadBfr){
       }
     }
     
-    // If everything is good, post a message to the appropriate ctrlQueue
+    // If everything is good, post a message to the appropriate ctrlQueue and send Ack
     OSQPost(&robotCtrlQueue[(payload->payloadData.robot.robotAddress) - FIRST_ROBOT],
             payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
     assert(osErr == OS_ERR_NONE);
+    
+    SendAck(payload->msgType);
   }
 }
 
@@ -252,8 +266,8 @@ CPU_INT08U StepRobot(Coord_t destination, Robot_t *robot){
   else
     direction = NoStep;
   
-  if(direction != NoStep)
-    direction = CheckSafety(direction, robot);
+//  if(direction != NoStep)
+//    direction = CheckSafety(direction, robot);
   
   return direction;
 }
@@ -291,28 +305,27 @@ void StopRobot(Buffer *payloadBfr){
 Ensure that the robot moves in a safe direction
 */
 CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot){
-  static Coord_t lastLocation;
   Coord_t currentLocation = robot->location;
   CPU_BOOLEAN dirSafe;
   CPU_INT08S oDir = direction;
   CPU_INT08U change[DIRECTIONS+1][DIMENSIONS] = {{0,0},{0,1},{1,1},{1,0},{1,-1},{0,-1},{-1,-1},{-1,0},{-1,1}};
+  // Try to weight the directions so that the robot will attempt to go in a direction
+  // close to the intended direction.
   CPU_INT08S dirPref[DIRECTIONS] = {0, 1, -1, -2, 2, 3, -3, 4};
   Coord_t nextLocation;
   
+  // Loop over all possible directions
   for(CPU_INT08U j=0;j<DIRECTIONS;j++){
     dirSafe = TRUE;
-    
     // Set and unwrap the direction to be tested
     direction = oDir + dirPref[j];
     if(direction > DIRECTIONS)
       direction -= DIRECTIONS;
     else if(direction < 1)
       direction += DIRECTIONS;
-    
     // Figure out which point is going to be tested for safety
     nextLocation.x = currentLocation.x + change[direction][0];
     nextLocation.y = currentLocation.y + change[direction][1];
-    
     // Make sure there's not already a robot there
     for(CPU_INT08U k=0;k<MAX_ROBOTS;k++){
       if((robots[k].exists) &&
@@ -322,21 +335,17 @@ CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot){
         break;
       }
     }
-    
     // Make sure it's inside the field
     if((nextLocation.x > X_LIM) || (nextLocation.y > Y_LIM))
-      dirSafe = FALSE;
-    
-    // Don't immediately backtrack
-    if((nextLocation.x == lastLocation.x) && (nextLocation.y == lastLocation.y))
       dirSafe = FALSE;
     
     if(dirSafe)
       break;
   }
   
-  lastLocation.x = oDir == direction ? -1 : currentLocation.x;
-  lastLocation.y = oDir == direction ? -1 : currentLocation.y;
+  if(!dirSafe){
+    direction = NoStep;
+  }
   robot->location = nextLocation;
   return direction;
 }

@@ -16,6 +16,7 @@ CHANGES
 #include "BfrPair.h"
 #include "Constants.h"
 #include "MemMgr.h"
+#include "RobotManager.h"
 #include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
@@ -23,7 +24,7 @@ CHANGES
 #define FRAMER_STK_SIZE 128
 #define FramerPrio 6
 
-#define ACK_PAYLOAD_SIZE 5
+#define PAYLOAD_SIZE 5
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 OS_TCB framerTCB;
@@ -107,17 +108,36 @@ void Framer(void *data){
 Send acknowledgement message to Framer
 */
 void SendAck(CPU_INT08U type){
-  OS_ERR osErr;
+//  OS_ERR osErr;
   Buffer *ackBfr = Allocate();  
   
   // Send an Ack packet to the framer for transmission
-  BfrAddByte(ackBfr, ACK_PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
-  BfrAddByte(ackBfr, CtrlCtrAddress);
-  BfrAddByte(ackBfr, MyAddress);
-  BfrAddByte(ackBfr, MSG_ACK);
-  BfrAddByte(ackBfr, type);
+  MakePayload(ackBfr, CtrlCtrAddress, MSG_ACK, type);
+//  BfrAddByte(ackBfr, ACK_PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
+//  BfrAddByte(ackBfr, CtrlCtrAddress);
+//  BfrAddByte(ackBfr, MyAddress);
+//  BfrAddByte(ackBfr, MSG_ACK);
+//  BfrAddByte(ackBfr, type);
+//  
+//  BfrClose(ackBfr);
+//  OSQPost(&framerQueue, ackBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+//  assert(osErr == OS_ERR_NONE);
+}
+
+/*--------------- M a k e P a y l  o a d ---------------
+Make a payload and send it to the framer.
+*/
+void MakePayload(Buffer *payloadBfr, CPU_INT08U receiver, CPU_INT08U type, CPU_INT08U payload){
+  OS_ERR osErr;
   
-  BfrClose(ackBfr);
-  OSQPost(&framerQueue, ackBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+  BfrReset(payloadBfr);
+  BfrAddByte(payloadBfr, PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
+  BfrAddByte(payloadBfr, receiver);
+  BfrAddByte(payloadBfr, MyAddress);
+  BfrAddByte(payloadBfr, type);
+  BfrAddByte(payloadBfr, payload);
+  BfrClose(payloadBfr);
+  
+  OSQPost(&framerQueue, payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
   assert(osErr == OS_ERR_NONE);
 }

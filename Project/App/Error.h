@@ -15,6 +15,7 @@ CHANGES
 #define Errors_H
 
 #include "Buffer.h"
+#include "RobotManager.h"
 
 #define ERROR_MULTIPLIER 10
 

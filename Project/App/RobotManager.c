@@ -22,7 +22,6 @@ CHANGES
 #include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
-
 #define LONGEST_PATH 10
 
 #define RobotMgrPrio 4
