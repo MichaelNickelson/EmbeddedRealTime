@@ -119,7 +119,7 @@ static  void  Init (void *p_arg)
   // Initialize the serial I/O driver. 
   InitSerIO();
   
-  // Create the ParsePkt and Payload tasks.
+  // Create the ParsePkt, Framer, and RobotMgr tasks.
   CreateParsePktTask();
   CreateFramerTask();
   CreateRobotMgrTask();

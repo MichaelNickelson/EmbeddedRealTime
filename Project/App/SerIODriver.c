@@ -112,6 +112,8 @@ void ServiceRx(){
   OS_ERR osErr;
   
   if((uart->SR) & RXNE_MASK){
+    if(BfrPairSwappable(&iBfrPair))
+      BfrPairSwap(&iBfrPair);
     if(!PutBfrClosed(&iBfrPair)){
       PutBfrAddByte(&iBfrPair, uart->DR);
       // If the put buffer closes, inform the OS.
@@ -164,6 +166,8 @@ CPU_INT16S GetByte(){
     putIndex = iBfrPair.buffers[iBfrPair.putBrfNum].putIndex;
     OSSemPend(&closedIBfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
     if(osErr == OS_ERR_TIMEOUT){
+      // If OSSemPend times out and the putBfr putIndex hasn't changed,
+      // force the iBfr to flush data.
       if(iBfrPair.buffers[iBfrPair.putBrfNum].putIndex == putIndex)
         ForceiBfr();
     }else{
@@ -209,22 +213,8 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
 Flush the output buffer.
 */
 void BfrFlush(void){
-//  OS_ERR osErr;
-//  
-//  OSSemPend(&openObfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-//  assert(osErr == OS_ERR_NONE);
-//     
-//  ClosePutBfr(&oBfrPair);
-//  if(BfrPairSwappable(&oBfrPair))
-//    BfrPairSwap(&oBfrPair);
-//  
-//  while(GetBfrClosed(&oBfrPair))
-//    ServiceTx();
-////    SerialISR();
-
   USART_TypeDef *uart = USART2;
   OS_ERR osErr;
-
   
   ClosePutBfr(&oBfrPair);
 
@@ -238,16 +228,14 @@ void BfrFlush(void){
 }
 
 /*----------- ForceiBfr() -----------
-Force the iBfr to send any available bytes
+Force the iBfr to send any available bytes by closing the put buffer and
+posting to closedIBfrs
 */
 void ForceiBfr(){
   OS_ERR osErr;
   
   if(iBfrPair.buffers[iBfrPair.putBrfNum].putIndex != 0){
     ClosePutBfr(&iBfrPair);
-    if(BfrPairSwappable(&iBfrPair))
-      BfrPairSwap(&iBfrPair);
     OSSemPost(&closedIBfrs, OS_OPT_POST_1, &osErr);
-//    ServiceRx();
   }
 }

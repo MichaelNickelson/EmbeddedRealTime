@@ -68,7 +68,6 @@ void RobotMgrTask(void *data){
   Payload *payload;
   OS_ERR osErr;
   OS_MSG_SIZE msgSize;
-//  OS_SEM messageWaiting[MAX_ROBOTS];
   
   for(;;){
     if(payloadBfr == NULL){
@@ -80,7 +79,6 @@ void RobotMgrTask(void *data){
                    &osErr);
     assert(osErr == OS_ERR_NONE);
     }
-    
     payload = (Payload *) payloadBfr->buffer;
     
     if(payload->dstAddr == MyAddress){ // If message is to me, generate a response
@@ -91,6 +89,7 @@ void RobotMgrTask(void *data){
           case(MSG_ADD):
             AddRobot(payloadBfr);
             break;
+          // Move, path, and loop are all handled in essentially the same way
           case(MSG_MOVE):
           case(MSG_PATH):
           case(MSG_LOOP):
@@ -110,7 +109,6 @@ void RobotMgrTask(void *data){
       }
       OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
               payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
-      OSSemPost(&messageWaiting[(payload->srcAddr) - FIRST_ROBOT], OS_OPT_POST_1, &osErr);
     }
   payloadBfr = NULL;
   }

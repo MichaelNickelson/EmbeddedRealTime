@@ -58,9 +58,9 @@ PURPOSE
 Initialize the memory manager.
 
 GLOBALS
-bfrPool		  -- Pool of free buffers
-bfrSpace    -- Memory space for pool buffers
-bfrAvail		-- Semaphore to allow buffer requests when pool is not empty
+bfrPool	 -- Pool of free buffers
+bfrSpace -- Memory space for pool buffers
+bfrAvail -- Semaphore to allow buffer requests when pool is not empty
 */
 void InitMemMgr(void)
 {
@@ -135,15 +135,15 @@ bfrAvail		-- Semaphore to allow buffer requests when pool is not empty
 */
 void Free(Buffer *bfr)
 {
-	OS_ERR		osErr;/* -- uCos Error Code */   
+  OS_ERR osErr;/* -- uCos Error Code */   
 
-   /* Return the buffer. */
-	OSMemPut(&bfrPool, bfr, &osErr);
-	assert(osErr==OS_ERR_NONE);
-        OSMemPut(&bfrSpacePool, bfr->buffer, &osErr);
-        assert(osErr==OS_ERR_NONE);
+  /* Return the buffer. */
+  OSMemPut(&bfrPool, bfr, &osErr);
+  assert(osErr==OS_ERR_NONE);
+  OSMemPut(&bfrSpacePool, bfr->buffer, &osErr);
+  assert(osErr==OS_ERR_NONE);
 	
-	/* Indicate that one more buffer is available. */
+  /* Indicate that one more buffer is available. */
   OSSemPost(&bfrAvail, OS_OPT_POST_1, &osErr);
   assert(osErr==OS_ERR_NONE);
 }   

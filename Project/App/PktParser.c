@@ -140,7 +140,6 @@ void DoStateP(StateVariables_t *myState){
   // If the wrong byte is found, go to error state
   if (myState->c != myState->preamble[pb++]){
     // Use preamble index that is currently being compared as the error code
-//    BfrAddByte(myState->payloadBfr, -(pb));
     ErrorTransition(myState,pb);
     pb = 0;
   }
@@ -179,7 +178,6 @@ void DoStateR(StateVariables_t *myState){
   }else{
     if(myState->checkSum){
       // Reset put buffer so ERR_CHECKSUM is in the right place
-//      BfrReset(myState->payloadBfr);
       ErrorTransition(myState, ERR_CHECKSUM);
     }else{
       myState->parseState = P;
