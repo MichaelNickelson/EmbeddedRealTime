@@ -129,6 +129,7 @@ void RobotCtrlTask(void *data){
       pathPoints[j] = payload->payloadData.robot.destination[j];
     do{ // As long as looping is true, stay in this loop
       for(CPU_INT08U j = 0;j<numPoints;j++){ // Visit each destination
+        unSafe = 0;
         do{ // Take at least one step, so that even NoStep commands will generate a HereIAm
           oDist = abs(rob->location.x - pathPoints[j].x) + abs(rob->location.y - pathPoints[j].y);
           direction = StepRobot(pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
@@ -150,10 +151,8 @@ void RobotCtrlTask(void *data){
           }
           rob->location = payload->payloadData.hereIAm;
           // After cumulative MISSED_STEPS that aren't closer to the destination, move on.
-          if(unSafe > MISSED_STEPS){
-            unSafe = 0;
+          if(unSafe > MISSED_STEPS)
             break;
-          }
         }while((robots[payload->srcAddr - FIRST_ROBOT].location.x != pathPoints[j].x) ||
                (robots[payload->srcAddr - FIRST_ROBOT].location.y != pathPoints[j].y));
         if(!looping)
