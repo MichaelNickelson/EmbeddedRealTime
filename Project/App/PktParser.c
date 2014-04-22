@@ -177,7 +177,6 @@ void DoStateR(StateVariables_t *myState){
     BfrAddByte(myState->payloadBfr, myState->c);
   }else{
     if(myState->checkSum){
-      // Reset put buffer so ERR_CHECKSUM is in the right place
       ErrorTransition(myState, ERR_CHECKSUM);
     }else{
       myState->parseState = P;
@@ -216,5 +215,7 @@ void ErrorTransition(StateVariables_t *myState, CPU_CHAR err){
   myState->checkSum=0;
   myState->parseState = ER;
   
+  Free(myState->payloadBfr);
   myState->payloadBfr = NULL;
+//  BfrReset(myState->payloadBfr);
 }

@@ -22,9 +22,6 @@ CHANGES
 #include "assert.h"
 #include "MemMgr.h"
 
-/*----- c o n s t a n t s -----*/
-#define PayloadBfrSize 24
-
 /*----- t y p e d e f s -----*/
 // So that a buffer space can be allocated along with a buffer
 typedef struct
@@ -115,7 +112,6 @@ Buffer *Allocate(void)
 	
   /* Initialize the buffer to prepare for filling. */
   BfrInit(bfr, *bfrArray, PayloadBfrSize);
-//  BfrReset(bfr);
 	
   return bfr;
 }   	

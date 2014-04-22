@@ -15,7 +15,6 @@ CHANGES
 Initialize a buffer
 */
 void BfrInit(Buffer *bfr, CPU_INT08U *bfrSpace, CPU_INT16U size){
-//void BfrInit(Buffer *bfr, BufferSpace_t *bfrSpace, CPU_INT16U size){
   bfr->size = size;
   bfr->buffer = bfrSpace;
   BfrReset(bfr);

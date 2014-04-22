@@ -23,7 +23,8 @@ Generate an error message and send it to the framer for transmission
 */
 void SendError(Error_t e){
   
-  Buffer *eBfr = Allocate();
+//  Buffer *eBfr = Allocate();
   
-  MakePayload(eBfr, CtrlCtrAddress, MSG_ERR, e);
+//  MakePayload(eBfr, CtrlCtrAddress, MSG_ERR, e);
+  MakePayload(CtrlCtrAddress, MSG_ERR, e);
 }
