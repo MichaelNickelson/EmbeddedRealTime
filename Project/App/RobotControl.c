@@ -50,7 +50,7 @@ typedef struct
 
 /*----- l o c a l   f u n c t i o n    p r o t o t y p e s -----*/
 void RobotCtrlTask(void *data);
-void StepRobot(Coord_t destination, Robot_t *robot);
+void StepRobot(Buffer *stepBuffer, Coord_t destination, Robot_t *robot);
 CPU_INT08U CheckSafety(CPU_INT08S direction, Robot_t *robot);
 
 /*----- G l o b a l   V a r i a b l e s -----*/
@@ -114,6 +114,7 @@ void RobotCtrlTask(void *data){
   CPU_INT08U unSafe = 0; // Number of unsafe steps the robot has taken of this leg
   Coord_t pathPoints[LONGEST_PATH]; // The path that the robot will follow
   CPU_BOOLEAN looping = FALSE; // Is the robot following a loop
+  CPU_BOOLEAN breakLoop = FALSE;
   Robot_t *rob = (Robot_t *) data;
   
   for(;;){
@@ -127,37 +128,36 @@ void RobotCtrlTask(void *data){
       pathPoints[j] = payload->payloadData.robot.destination[j];
     do{ // As long as looping is true, stay in this loop
       for(CPU_INT08U j = 0;j<numPoints;j++){ // Visit each destination
-        unSafe = 0;
+        unSafe = 0; // Since it's just started travelling, no unsafe steps have been taken.
         do{ // Take at least one step, so that even NoStep commands will generate a HereIAm
-          if(payloadBfr->size == PayloadBfrSize)
-            Free(payloadBfr); // If this is a valid buffer, free it (MakePayload will allocate as needed)
           oDist = abs(rob->location.x - pathPoints[j].x) + abs(rob->location.y - pathPoints[j].y);
-          StepRobot(pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
-          // After sending the step command, wait until a HereIAm is received
-          payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize, NULL, &osErr);
-          assert((osErr == OS_ERR_NONE) || (osErr == OS_ERR_TIMEOUT));
-          if(OS_ERR_NONE == osErr){
-            payload = (Payload *) payloadBfr->buffer;
-            // If a stop command is received instead of HereIAm, stop looping and wait HereIAm is received to update location
-            if(payload->msgType == MSG_STOP){
-              looping = FALSE;
-              payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize, NULL, &osErr);
-              assert((osErr == OS_ERR_NONE) || (osErr == OS_ERR_TIMEOUT));
-              if(OS_ERR_NONE == osErr){
+          StepRobot(payloadBfr, pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
+          while((rob->location.x != rob->nextLocation.x) || (rob->location.y != rob->nextLocation.y)){
+            payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize, NULL, &osErr);
+            assert((osErr == OS_ERR_NONE) || (osErr == OS_ERR_TIMEOUT));
+            if(OS_ERR_TIMEOUT == osErr){
+              payloadBfr = Allocate(); // Pass a valid puffer to Steprobot
+              StepRobot(payloadBfr, pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
+            }else if(OS_ERR_NONE == osErr){
+              payload = (Payload *) payloadBfr->buffer;
+              if(payload->msgType == MSG_STOP){
+                breakLoop = TRUE;
+              }else if(MSG_HERE_I_AM == payload->msgType){
                 payload = (Payload *) payloadBfr->buffer;
-                rob->location = payload->payloadData.hereIAm;
+              rob->location = payload->payloadData.hereIAm;
               }
-              break;
             }
-            rob->location = payload->payloadData.hereIAm;
-            // If the robot isn't closer to the destination, that step was unsafe
-            unSafe += (oDist > (abs(rob->location.x - pathPoints[j].x) + abs(rob->location.y - pathPoints[j].y))) ? 0 : 1;
-            // After cumulative MISSED_STEPS that aren't closer to the destination, move on.
-            if(unSafe > MISSED_STEPS)
-              break;
-          }else{
-            unSafe = 0;
           }
+          if(breakLoop){
+            looping = FALSE;
+            breakLoop = FALSE;
+            break;
+          }
+          // If the robot isn't closer to the destination, that step was unsafe
+          unSafe += (oDist > (abs(rob->location.x - pathPoints[j].x) + abs(rob->location.y - pathPoints[j].y))) ? 0 : 1;
+          // After cumulative MISSED_STEPS that aren't closer to the destination, move on.
+          if(unSafe > MISSED_STEPS)
+            break;
         }while((rob->location.x != pathPoints[j].x) ||
                (rob->location.y != pathPoints[j].y));
         if(!looping)
@@ -250,7 +250,7 @@ void ValidateCommand(Buffer *payloadBfr){
 /*--------------- S t e p R o b o t ---------------
 Determine which direction a robot should step in
 */
-void StepRobot(Coord_t destination, Robot_t *robot){
+void StepRobot(Buffer *stepBuffer, Coord_t destination, Robot_t *robot){
   CPU_INT08S direction = NoStep;
   Coord_t currentLocation = robot->location;
   Coord_t nextLocation = robot->nextLocation;
@@ -277,7 +277,8 @@ void StepRobot(Coord_t destination, Robot_t *robot){
   if(direction != NoStep)
     direction = CheckSafety(direction, robot);
   
-  MakePayload(robot->id, MSG_STEP, direction);
+//  stepBuffer = Allocate();
+  MakePayload(stepBuffer, robot->id, MSG_STEP, direction);
 }
 
 /*--------------- S t o p R o b o t ---------------
