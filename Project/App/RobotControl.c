@@ -132,7 +132,7 @@ void RobotCtrlTask(void *data){
         do{ // Take at least one step, so that even NoStep commands will generate a HereIAm
           oDist = abs(rob->location.x - pathPoints[j].x) + abs(rob->location.y - pathPoints[j].y);
           StepRobot(payloadBfr, pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
-          do{ // Don't leave until the robot's stepped location matches its current location
+          do{ // If Stop is received, make sure the next HereIAm is also received
             payloadBfr = OSQPend(&robotCtrlMbox[rob->id - FIRST_ROBOT], SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, &msgSize, NULL, &osErr);
             assert((osErr == OS_ERR_NONE) || (osErr == OS_ERR_TIMEOUT));
             if(OS_ERR_TIMEOUT == osErr){
@@ -258,7 +258,7 @@ void StepRobot(Buffer *stepBuffer, Coord_t destination, Robot_t *robot){
   // The last step command wan't received, don't go anywhere until that is resolved
   if((nextLocation.x != currentLocation.x) || nextLocation.y != currentLocation.y)
     direction = NoStep;
-  // Proceed as normal
+  // Otherwise proceed as normal
   else if((destination.x == currentLocation.x) && (destination.y > currentLocation.y))
      direction = N;
   else if((destination.x > currentLocation.x) && (destination.y > currentLocation.y))
