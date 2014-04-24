@@ -104,11 +104,9 @@ void RobotMgrTask(void *data){
         }
         payloadBfr = NULL;
     }else if(payload->dstAddr == 0){
-      if(payload->payloadData.hereIAm.y == 17){
-        osErr = OS_ERR_NONE;
-      }
       OSQPost(&robotCtrlMbox[(payload->srcAddr) - FIRST_ROBOT],
               payloadBfr, sizeof(Buffer), OS_OPT_POST_FIFO, &osErr);
+      assert(OS_ERR_NONE == osErr);
     }
   payloadBfr = NULL;
   }

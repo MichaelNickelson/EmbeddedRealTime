@@ -21,7 +21,9 @@ CHANGES
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
 /* Total number of buffers in buffer pool */
-#define PoolSize	20
+// If there's a high error rate, and large packets, this needs to be larger
+#define PoolSize 20
+/* Longest possible buffer (overhead + longest path)*/
 #define PayloadBfrSize 24
 
 /*----- g l o b a l s -----*/

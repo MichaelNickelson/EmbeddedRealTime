@@ -95,9 +95,8 @@ void Framer(void *data){
       PutByte(c);
     }
     PutByte(cs);
-    
     BfrFlush();
-    
+  
     Free(payloadBfr);
     payloadBfr = NULL;
   }
@@ -107,11 +106,9 @@ void Framer(void *data){
 Send acknowledgement message to Framer
 */
 void SendAck(CPU_INT08U type){
-//  OS_ERR osErr;
   Buffer *ackBfr = Allocate();  
   
   // Send an Ack packet to the framer for transmission
-//  MakePayload(CtrlCtrAddress, MSG_ACK, type);
   MakePayload(ackBfr, CtrlCtrAddress, MSG_ACK, type);
 }
 
@@ -119,10 +116,7 @@ void SendAck(CPU_INT08U type){
 Make a payload and send it to the framer.
 */
 void MakePayload(Buffer *payloadBfr, CPU_INT08U receiver, CPU_INT08U type, CPU_INT08U payload){
-//void MakePayload(Buffer *payloadBfr, CPU_INT08U receiver, CPU_INT08U type, CPU_INT08U payload){
   OS_ERR osErr;
-  
-//  Buffer *payloadBfr = Allocate();
   
   BfrReset(payloadBfr);
   BfrAddByte(payloadBfr, PAYLOAD_SIZE + PREAMBLE_LENGTH + 1);
