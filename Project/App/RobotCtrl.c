@@ -189,6 +189,12 @@ void AddRobot(Buffer *payloadBfr){
         SendError(ERR_ADD_OCCUPIED);
         return;
       }
+      if((location.x == robots[j].nextLocation.x) &&
+         (location.y == robots[j].nextLocation.y) &&
+          robots[j].exists){
+        SendError(ERR_ADD_OCCUPIED);
+        return;
+      }
     }
     CreateRobotCtrlTask(id);
     robots[id-FIRST_ROBOT].exists = TRUE;
