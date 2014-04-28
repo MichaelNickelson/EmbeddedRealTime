@@ -1,4 +1,4 @@
-/*--------------- R o b o t M a n a g e r . c ---------------
+/*--------------- R o b o t M g r . c ---------------
 
 by: Michael Nickelson
 
@@ -10,14 +10,14 @@ CHANGES
 */
 
 #include "includes.h"
-#include "RobotManager.h"
+#include "RobotMgr.h"
 #include "assert.h"
 #include "Buffer.h"
 #include "Error.h"
 #include "Framer.h"
 #include "MemMgr.h"
 #include "PktParser.h"
-#include "RobotControl.h"
+#include "RobotCtrl.h"
 #include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/

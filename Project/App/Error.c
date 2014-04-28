@@ -6,7 +6,9 @@ PURPOSE
 Generate error and assert messages
 
 CHANGES
-02/19/2014 mn - Initial submission
+02-19-2014 mn - Initial submission
+04-30-2014 mn - No text is output by error functions,
+                a payload is returned with an error code
 */
 
 #include "includes.h"
@@ -14,17 +16,13 @@ CHANGES
 #include "assert.h"
 #include "Framer.h"
 #include "Memmgr.h"
-#include "RobotControl.h"
-
-////#define ERR_PAYLOAD_SIZE 5
+#include "RobotCtrl.h"
 
 /*--------------- S e n d E r r o r ---------------
 Generate an error message and send it to the framer for transmission
 */
 void SendError(Error_t e){
-  
   Buffer *eBfr = Allocate();
   
   MakePayload(eBfr, CtrlCtrAddress, MSG_ERR, e);
-//  MakePayload(CtrlCtrAddress, MSG_ERR, e);
 }

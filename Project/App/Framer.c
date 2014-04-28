@@ -15,13 +15,13 @@ CHANGES
 #include "assert.h"
 #include "BfrPair.h"
 #include "MemMgr.h"
-#include "RobotManager.h"
+#include "RobotMgr.h"
 #include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 #define SUSPEND_TIMEOUT 0
 #define FRAMER_STK_SIZE 128
-#define FramerPrio 6
+#define FramerPrio 3
 
 #define PAYLOAD_SIZE 5
 
@@ -112,7 +112,7 @@ void SendAck(CPU_INT08U type){
   MakePayload(ackBfr, CtrlCtrAddress, MSG_ACK, type);
 }
 
-/*--------------- M a k e P a y l  o a d ---------------
+/*--------------- M a k e P a y l o a d ---------------
 Make a payload and send it to the framer.
 */
 void MakePayload(Buffer *payloadBfr, CPU_INT08U receiver, CPU_INT08U type, CPU_INT08U payload){

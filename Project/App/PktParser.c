@@ -10,6 +10,7 @@ receives a struct with the current state information.
 CHANGES
 02-19-2014 mn -  Initial Submission
 03-12-2014 mn -  Updated to use uCOS-III and semaphores
+04-30-2014 mn -  Modifications needed for final project
 */
 
 /* Include dependencies */
@@ -42,12 +43,6 @@ typedef struct{
   CPU_INT08U preamble[PREAMBLE_LENGTH];
   Buffer *payloadBfr;
 } StateVariables_t;
-
-/* Packet structure */
-typedef struct{
-  CPU_INT08U payloadLen;
-  CPU_INT08U data[1];
-} PktBfr;
 
 /*----- G l o b a l   V a r i a b l e s -----*/
 OS_TCB parsePktTCB;
@@ -87,8 +82,6 @@ void CreateParsePktTask(void){
                &osErr);
   assert(osErr == OS_ERR_NONE);
 }
-
-  Buffer *payloadBfr = NULL;
 
 /*--------------- P a r s e P k t ---------------
 This is the main function used for packet parsing. It is implemented as a 
@@ -217,5 +210,4 @@ void ErrorTransition(StateVariables_t *myState, CPU_CHAR err){
   
   Free(myState->payloadBfr);
   myState->payloadBfr = NULL;
-//  BfrReset(myState->payloadBfr);
 }

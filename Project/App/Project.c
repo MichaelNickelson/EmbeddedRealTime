@@ -1,15 +1,15 @@
-/*--------------- P r o g 4 . c ---------------
+/*--------------- P r o j e c t . c ---------------
 
 Modified by: Michael Nickelson
 
 PURPOSE
-Receive wireless sensor network packets from the RS232 port,
-interpret and display the messages.
+Initialize OS and start tasks needed for robot control and management.
 
 CHANGES
 01-29-2013 gpc -  Created
 02-26-2014 mn  -  Updated for interrupt driven IO, renamed to Prog3.
 03-12-2014 mn  -  Updated to use uCOS-III, renamed to Prog4.
+04-30-2014 mn  -  Modifications for final project, renamed to Project.
 */
 
 #include "includes.h"
@@ -18,7 +18,7 @@ CHANGES
 #include "Intrpt.h"
 #include "MemMgr.h"
 #include "PktParser.h"
-#include "RobotManager.h"
+#include "RobotMgr.h"
 #include "SerIODriver.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/

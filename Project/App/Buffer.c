@@ -6,7 +6,8 @@ PURPOSE
 Buffer functions and definitions
 
 CHANGES
-02/19/2014 mn - Initial submission
+02-19-2014 mn - Initial submission
+04-30-2014 mn - BfrAddByte shortened
 */
 
 #include "Buffer.h"
@@ -75,7 +76,6 @@ CPU_INT16S BfrAddByte(Buffer *bfr, CPU_INT16S theByte){
   if(!BfrClosed(bfr)){
     retVal = theByte;
     bfr->buffer[bfr->putIndex++] = theByte;
-//    bfr->putIndex++;
   }
   
   if(bfr->putIndex >= bfr->size)

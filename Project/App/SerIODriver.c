@@ -8,6 +8,8 @@ This module sets up serial IO and appropriate buffers
 CHANGES
 02-19-2014 mn -  Initial submission
 03-12-2014 mn -  Updated to use uCOS-III and semaphores
+04-30-2014 mn -  Add functions to prevent stale data in buffers from
+				 interfering with program functionality.
 */
 
 #include "SerIODriver.h"
@@ -23,6 +25,8 @@ CHANGES
 #define SETENA1 (*((CPU_INT32U *) 0xE000E104))
 #define CLRENA1 (*((CPU_INT32U *) 0xE000E184))
 #define NUM_BFRS 1
+#define SUSPEND_TIMEOUT 20
+#define PUT_NULL -1
 
 /*----- Local Function prototypes -----*/
 void ServiceRx();
@@ -35,7 +39,6 @@ void ForceiBfr();
 BfrPair iBfrPair;
 static CPU_INT08U iBfr0Space[BfrSize];
 static CPU_INT08U iBfr1Space[BfrSize];
-const CPU_INT16U SUSPEND_TIMEOUT = 2*BfrSize;
 
 //static BfrPair oBfrPair;
 BfrPair oBfrPair;
@@ -202,8 +205,12 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
       BfrPairSwap(&oBfrPair);
   }
   
-  PutBfrAddByte(&oBfrPair,txChar);
-  retVal = txChar;
+  // Do not add txChar to oBfrPair if txChar is PUT_NULL
+  // This allows BfrFlush simply close oBfrPair.putBfr and call PutByte
+  if(txChar != PUT_NULL){
+    PutBfrAddByte(&oBfrPair,txChar);
+    retVal = txChar;
+  }
   uart->CR1 = uart->CR1 | TXEIE_MASK;
   
   return retVal;
@@ -213,18 +220,8 @@ CPU_INT16S PutByte(CPU_INT16S txChar){
 Flush the output buffer.
 */
 void BfrFlush(void){
-  USART_TypeDef *uart = USART2;
-  OS_ERR osErr;
-  
   ClosePutBfr(&oBfrPair);
-
-  OSSemPend(&openObfrs, SUSPEND_TIMEOUT, OS_OPT_PEND_BLOCKING, NULL, &osErr);
-  assert(osErr == OS_ERR_NONE);
-    
-  if(BfrPairSwappable(&oBfrPair))
-    BfrPairSwap(&oBfrPair);
-
-  uart->CR1 = uart->CR1 | TXEIE_MASK;
+  PutByte(PUT_NULL);
 }
 
 /*----------- ForceiBfr() -----------

@@ -23,7 +23,6 @@ typedef struct
   CPU_INT16U putIndex;
   CPU_INT16U getIndex;
   CPU_INT08U *buffer;
-//  BufferSpace_t *buffer;
 } Buffer;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/

@@ -7,15 +7,16 @@ Generate error and assert messages
 Header file
 
 CHANGES
-02-19-14 mn -  Initial submission
-03-12-14 mn -  Remove preamble error prototype as the function is no longer used
+02-19-2014 mn -  Initial submission
+03-12-2014 mn -  Remove preamble error prototype as the function is no longer used
+04-30-2014 mn -  Add errors needed for final project
 */
 
 #ifndef Errors_H
 #define Errors_H
 
 #include "Buffer.h"
-#include "RobotManager.h"
+#include "RobotMgr.h"
 
 #define ERROR_MULTIPLIER 10
 
@@ -52,8 +53,6 @@ typedef enum {ERR_PREAMBLE_1 = 1,
               
               ERR_MGR_TYPE = 61
               } Error_t;
-
-typedef enum {ASS_ADDRESS} Assert_t;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void SendError(Error_t e);

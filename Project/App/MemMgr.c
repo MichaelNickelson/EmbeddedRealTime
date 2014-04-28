@@ -21,13 +21,7 @@ CHANGES
 #include "includes.h"
 #include "assert.h"
 #include "MemMgr.h"
-
-/*----- t y p e d e f s -----*/
-// So that a buffer space can be allocated along with a buffer
-typedef struct
-{
-  CPU_INT08U bfrSpace[PayloadBfrSize];
-} BufferSpace_t;
+#include "RobotCtrl.h"
 
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
@@ -37,8 +31,7 @@ typedef struct
 
 /* Space for "PoolSize" buffers */
 Buffer     bfrSpace[PoolSize];
-CPU_INT08U bufferArrays[PayloadBfrSize][PoolSize];
-
+CPU_INT08U bufferArrays[sizeof(Payload)][PoolSize];
 
 /* Memory partition control block to manage the buffer pool */
 OS_MEM bfrPool;
@@ -46,7 +39,6 @@ OS_MEM bfrSpacePool;
 
 /* Semaphores */
 OS_SEM bfrAvail;	/* Number of free buffers remaining in the pool */
-
 
 /*--------------- I n i t M e m M g r ( ) ---------------*/
 
@@ -70,12 +62,8 @@ void InitMemMgr(void)
   /* Create a pool of "PoolSize" buffers. */
   OSMemCreate(&bfrPool, "Buffer Pool", bfrSpace, PoolSize, sizeof(Buffer), &osErr);
   assert(osErr == OS_ERR_NONE);
-  
-  /* Create a pool of "PoolSize" buffers. */
-  OSMemCreate(&bfrPool, "Buffer Space Pool", bfrSpace, PoolSize, sizeof(Buffer), &osErr);
-  assert(osErr == OS_ERR_NONE);
-  
-  OSMemCreate(&bfrSpacePool, "Buffer Space Pool", bufferArrays, PoolSize, sizeof(BufferSpace_t), &osErr);
+
+  OSMemCreate(&bfrSpacePool, "Buffer Spaces", bufferArrays, PoolSize, sizeof(Payload), &osErr);
   assert(osErr == OS_ERR_NONE);
 }
 
@@ -97,7 +85,7 @@ Buffer *Allocate(void)
   OS_ERR osErr;/* -- uCos Error Code */   
    
   Buffer *bfr;  // Allocated buffer address
-  CPU_INT08U *bfrArray[PayloadBfrSize]; // Allocated buffer space
+  CPU_INT08U *bfrArray; // Allocated buffer space
    
   /* Wait until there is an available buffer. */
   OSSemPend(&bfrAvail, SuspendTimeout, OS_OPT_PEND_BLOCKING, NULL, &osErr);
@@ -107,11 +95,12 @@ Buffer *Allocate(void)
   bfr = (Buffer*) OSMemGet(&bfrPool, &osErr);
   assert(osErr==OS_ERR_NONE);
   
-  bfrArray[0] = (CPU_INT08U*) OSMemGet(&bfrSpacePool, &osErr);
+  /* Get the bufferspace from the pool. */
+  bfrArray = OSMemGet(&bfrSpacePool, &osErr);
   assert(osErr==OS_ERR_NONE);
 	
   /* Initialize the buffer to prepare for filling. */
-  BfrInit(bfr, *bfrArray, PayloadBfrSize);
+  BfrInit(bfr, bfrArray, sizeof(Payload));
 	
   return bfr;
 }   	

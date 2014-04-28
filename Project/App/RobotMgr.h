@@ -1,4 +1,4 @@
-/*--------------- R o b o t M a n a g e r . h ---------------
+/*--------------- R o b o t M g r . h ---------------
 
 by: Michael Nickelson
 
@@ -13,7 +13,7 @@ CHANGES
 #define ROBOT_H
 
 /*-----  Assign easy to read names to message ID -----*/
-// In the header to be used by Error.c, Framer.c, and RobotControl.c
+// In the header to be used by Error.c, Framer.c, and RobotCtrl.c
 #define MSG_RESET 0x00
 #define MSG_ADD 0x01
 #define MSG_MOVE 0x02

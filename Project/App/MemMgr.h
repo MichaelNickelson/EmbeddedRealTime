@@ -10,7 +10,8 @@ PURPOSE
 Interface to MemMgr.c.
 
 CHANGES
-03-24-2011  - Release to class.
+03-24-2011 - Release to class.
+04-30-2014 mn - Changes to PoolSize
 */
 
 #ifndef MEMMGR_H
@@ -21,10 +22,7 @@ CHANGES
 /*----- c o n s t a n t    d e f i n i t i o n s -----*/
 
 /* Total number of buffers in buffer pool */
-// If there's a high error rate, and large packets, this needs to be larger
 #define PoolSize 20
-/* Longest possible buffer (overhead + longest path)*/
-#define PayloadBfrSize 24
 
 /*----- g l o b a l s -----*/
 

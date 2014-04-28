@@ -9,6 +9,7 @@ This module sets up serial IO and appropriate buffers
 CHANGES
 02-19-2014 mn -  Initial submission
 03-12-2014 mn -  Updated to use uCOS-III and semaphores
+04-30-2014 mn -  Add BfrFlush to force sending of bytes when buffer is not yet full.
 */
 
 #ifndef SERIODRIVER_H
@@ -21,8 +22,6 @@ CHANGES
 #ifndef BfrSize
 #define BfrSize 4
 #endif
-
-//extern BfrPair oBfrPair;
 
 /*----- f u n c t i o n    p r o t o t y p e s -----*/
 void SerialISR(void);

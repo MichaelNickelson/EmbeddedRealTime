@@ -22,7 +22,6 @@ CHANGES
 
 extern OS_Q robotCtrlMbox[MAX_ROBOTS];
 extern OS_Q robotCtrlQueue[MAX_ROBOTS];
-extern OS_SEM messageWaiting[MAX_ROBOTS];
 
 /*----- t y p e d e f s -----*/
 typedef struct

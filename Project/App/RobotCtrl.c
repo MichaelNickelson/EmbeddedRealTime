@@ -10,12 +10,12 @@ CHANGES
 */
 
 #include "includes.h"
-#include "RobotControl.h"
+#include "RobotCtrl.h"
 #include "assert.h"
 #include "Error.h"
 #include "Framer.h"
 #include "MemMgr.h"
-#include "RobotManager.h"
+#include "RobotMgr.h"
 
 #define RobotCtrlPrio 4
 #define ROBOT_CTRL_STK_SIZE 128
@@ -60,8 +60,6 @@ static CPU_STK robotCtrlStk[MAX_ROBOTS][ROBOT_CTRL_STK_SIZE];
 OS_Q robotCtrlMbox[MAX_ROBOTS];
 OS_Q robotCtrlQueue[MAX_ROBOTS];
 
-OS_SEM messageWaiting[MAX_ROBOTS];
-
 // Array of robots for collision and existence detection.
 Robot_t robots[MAX_ROBOTS];
 
@@ -82,7 +80,6 @@ void CreateRobotCtrlTask(CPU_INT08U id){
                "Robot controller task",
                &RobotCtrlTask,
                &robots[id - FIRST_ROBOT],
-//               &id,
                RobotCtrlPrio,
                &robotCtrlStk[id - FIRST_ROBOT][0],
                ROBOT_CTRL_STK_SIZE / HIGH_WATER_LIMIT,
@@ -138,11 +135,11 @@ void RobotCtrlTask(void *data){
             if(OS_ERR_TIMEOUT == osErr){
               payloadBfr = Allocate(); // Get a buffer to pass to StepRobot
               StepRobot(payloadBfr, pathPoints[j], &robots[rob->id - FIRST_ROBOT]);
-            }else if(OS_ERR_NONE == osErr){
+            }else{
               payload = (Payload *) payloadBfr->buffer;
               if(payload->msgType == MSG_STOP){
                 breakLoop = TRUE;
-              }else if(MSG_HERE_I_AM == payload->msgType){
+              }else{
                 payload = (Payload *) payloadBfr->buffer;
                 rob->location = payload->payloadData.hereIAm;
               }
