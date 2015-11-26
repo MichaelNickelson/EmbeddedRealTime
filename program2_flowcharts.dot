@@ -1,0 +1,31 @@
+#!dot
+digraph {
+  concentrate=true;
+
+  ServiceRx[shape="box", style=rounded, label="ServiceRx()"];
+  RXNE[shape="diamond", label=""];
+  PutBfrClosed_1[shape="diamond", label=""];
+  PutBfrAddByte[shape="box", style=rounded, label="PutBfrAddByte(iBfrPair)"];
+  Return[shape="box", style=rounded, label="Return"];
+
+  ServiceRx -> RXNE;
+  RXNE -> PutBfrClosed_1[label=" RXNE = 1 "];
+  RXNE -> Return[label=" RXNE != 1 "];
+  PutBfrClosed_1 -> Return[label="  PutBfrClosed(iBfrPair) "];
+  PutBfrClosed_1 -> PutBfrAddByte[label="  !PutBfrClosed(iBfrPair) "];
+  PutBfrAddByte -> Return;
+  
+
+  GetByte[shape="box", style=rounded, label="GetByte()"];
+  PutBfrClosed_2[shape="diamond", label=""];
+  GetBfrClosed[shape="diamond", label=""];
+  BfrPairSwap[shape="box", style=rounded, label="BfrPairSwap(iBfrPair"];
+  Return_2[shape="record", style=rounded, label="{Return\nGetBfrRemByte(iBfrPair)|If iBfrPair get buffer is empty return value is -1}"];
+
+  GetByte -> PutBfrClosed_2;
+  PutBfrClosed_2 -> GetBfrClosed[label=" PutBfrClosed(iBfrPair) "];
+  PutBfrClosed_2 -> Return_2[label="  !PutBfrClosed(iBfrPair) "];
+  GetBfrClosed -> Return_2[label="  GetBfrClosed(iBfrPair) "];
+  GetBfrClosed -> BfrPairSwap[label="  !GetBfrClosed(iBfrPair) "];
+  BfrPairSwap -> Return_2;
+}

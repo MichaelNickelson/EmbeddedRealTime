@@ -1,0 +1,54 @@
+#!dot
+digraph {
+  concentrate=true;
+
+  ServiceRx_1[shape="box", style=rounded, label="ServiceRx()"];
+  RXNE_1[shape="diamond", label=""];
+  PutBfrClosed_1[shape="diamond", label=""];
+  Interrupt_1[shape="box", label="Unmask Rx Interrupt"];
+  PutBfrAddByte_1[shape="box", style=rounded, label="PutBfrAddByte(iBfrPair)"];
+  PutBfrClosed[shape="diamond"];
+  PutBfrAddByte_2[shape="box", style=rounded, label="PutBfrAddByte(iBfrPair)"];
+  OSSemPost[shape="record", style=rounded, label="{OSSemPost(&closediBfrs)|Assert(OSErr)}"];
+  Return_1[shape="box", style=rounded, label="Return"];
+  Interrupt_1[shape="box", style=rounded, label="Mask Rx Interrupt"];
+
+  ServiceRx_1 -> RXNE_1;
+  RXNE_1 -> PutBfrClosed_1[label=" RXNE = 1 "];
+  RXNE_1 -> Return_1[label=" RXNE != 1 "];
+  PutBfrClosed_1 -> Interrupt_1[label="  PutBfrClosed(iBfrPair) "];
+  PutBfrClosed_1 -> PutBfrAddByte_1[label="  !PutBfrClosed(iBfrPair) "];
+  PutBfrAddByte_1 -> PutBfrClosed;
+  PutBfrClosed -> PutBfrAddByte_2;
+  Interrupt_1 -> Return_1;
+  PutBfrAddByte_2 -> OSSemPost;
+  OSSemPost -> Return_1;
+  
+
+  GetByte[shape="box", style=rounded, label="GetByte()"];
+  RetVal[shape="box", label="retVal = -1"];
+  GetBfrClosed[shape="diamond", label=""];
+  OSSemPost_2[shape="record", style=rounded, label="{OSSemPost(&openiBfrs)|Assert(OSErr)}"];
+  BufferPairSwappable[shape="diamond", label=""];
+  BfrPairSwap[shape="box", style=rounded, label="BfrPairSwap(iBfrPair)"];
+  
+  GetBfrClosed_2[shape="diamond", label=""];
+  Interrupt_2[shape="box", label="Mask Rx Interrupt"];
+  SetRetVal[shape="box", style=rounded, label="retVal = GetBfrRemByte(iBfrPair)"];
+  Return_2[shape="box", style=rounded, label="Return\nretVal"];
+
+  GetByte -> RetVal;
+  RetVal -> GetBfrClosed;
+  GetBfrClosed -> OSSemPost_2[label="  !GetBfrClosed(iBfrPair) "];
+// The next line is assumed, GetBfrClosed went nowhere.
+  GetBfrClosed -> BufferPairSwappable[label="  GetBfrClosed(iBfrPair) "];
+  OSSemPost_2 -> BufferPairSwappable;
+// The next line is assumed, there was no !BufferPairSwappable branch.
+  BufferPairSwappable -> Return_2[label="  !BufferPairSwappable(iBfrPair)"];
+  BufferPairSwappable -> BfrPairSwap[label="  BufferPairSwappable(iBfrPair)"];
+  BfrPairSwap -> GetBfrClosed_2;
+  GetBfrClosed_2 -> Interrupt_2[label=" GetBfrClosed(iBfrPair)"];
+  GetBfrClosed_2 -> Return_2[label=" !GetBfrClosed(iBfrPair)"];
+  Interrupt_2 -> SetRetVal;
+  SetRetVal -> Return_2;
+}
