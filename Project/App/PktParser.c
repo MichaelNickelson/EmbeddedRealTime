@@ -114,7 +114,7 @@ void ParsePkt(void *data){
         case R:   // Read in data
           DoStateR(&myState);
           break;
-        case ER:  // If an error occurs, or a an unknown state arises,
+        case ER:  // If an error occurs, or an unknown state arises,
         default:  // look for a  full preamble.
           DoStateER(&myState);
           break;
